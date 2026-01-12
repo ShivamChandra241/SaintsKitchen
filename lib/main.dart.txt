@@ -1,0 +1,248 @@
+import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:intl/intl.dart';
+
+void main() {
+  runApp(const SaintsKitchenApp());
+}
+
+class SaintsKitchenApp extends StatelessWidget {
+  const SaintsKitchenApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Saints Kitchen',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primaryColor: const Color(0xFF6200EA), // Saints Purple
+        scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+        colorScheme: ColorScheme.fromSwatch().copyWith(
+          primary: const Color(0xFF6200EA),
+          secondary: const Color(0xFFFFD700), // Saints Gold
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF6200EA),
+          foregroundColor: Colors.white,
+        ),
+      ),
+      home: const HomePage(),
+    );
+  }
+}
+
+// --- MOCK DATA ---
+class FoodItem {
+  final String name;
+  final double price;
+  final IconData icon;
+  FoodItem(this.name, this.price, this.icon);
+}
+
+final List<FoodItem> menu = [
+  FoodItem("Classic Burger", 60.0, Icons.lunch_dining),
+  FoodItem("Cheese Pizza", 80.0, Icons.local_pizza),
+  FoodItem("Veg Sandwich", 40.0, Icons.bakery_dining),
+  FoodItem("Cola", 20.0, Icons.local_drink),
+  FoodItem("Fries", 50.0, Icons.fastfood),
+];
+
+// --- SCREENS ---
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  double walletBalance = 500.0;
+  List<FoodItem> cart = [];
+
+  void addToCart(FoodItem item) {
+    setState(() {
+      cart.add(item);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("${item.name} added!"), duration: const Duration(milliseconds: 500)),
+    );
+  }
+
+  double get cartTotal => cart.fold(0, (sum, item) => sum + item.price);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Saints Kitchen"),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                child: Text("₹${walletBalance.toStringAsFixed(0)}", 
+                  style: const TextStyle(color: Color(0xFF6200EA), fontWeight: FontWeight.bold)),
+              ),
+            ),
+          )
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(15),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.85,
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+              ),
+              itemCount: menu.length,
+              itemBuilder: (context, index) {
+                final item = menu[index];
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5)],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(item.icon, size: 50, color: const Color(0xFF6200EA)),
+                      const SizedBox(height: 10),
+                      Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text("₹${item.price}", style: const TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 10),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFD700),
+                          foregroundColor: Colors.black,
+                          shape: const StadiumBorder(),
+                        ),
+                        onPressed: () => addToCart(item),
+                        child: const Text("Add"),
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          if (cart.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black12)],
+                borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+              ),
+              child: Row(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Total", style: TextStyle(color: Colors.grey)),
+                      Text("₹$cartTotal", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const Spacer(),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      backgroundColor: const Color(0xFF6200EA),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                    onPressed: () {
+                      if (walletBalance >= cartTotal) {
+                        setState(() {
+                          walletBalance -= cartTotal;
+                          cart.clear();
+                        });
+                        Navigator.push(context, MaterialPageRoute(builder: (c) => const OrderTrackingPage()));
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Low Balance!")));
+                      }
+                    },
+                    child: const Text("PAY & ORDER", style: TextStyle(fontWeight: FontWeight.bold)),
+                  )
+                ],
+              ),
+            )
+        ],
+      ),
+    );
+  }
+}
+
+class OrderTrackingPage extends StatefulWidget {
+  const OrderTrackingPage({super.key});
+  @override
+  State<OrderTrackingPage> createState() => _OrderTrackingPageState();
+}
+
+class _OrderTrackingPageState extends State<OrderTrackingPage> {
+  int currentStep = 0;
+  
+  @override
+  void initState() {
+    super.initState();
+    // Simulate kitchen steps
+    Future.delayed(const Duration(seconds: 4), () => setState(() => currentStep = 1));
+    Future.delayed(const Duration(seconds: 8), () => setState(() => currentStep = 2));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Order Status")),
+      body: Padding(
+        padding: const EdgeInsets.all(25.0),
+        child: Column(
+          children: [
+            const Text("Order #SR3-882", style: TextStyle(color: Colors.grey, fontSize: 16)),
+            const SizedBox(height: 40),
+            _step("Order Placed", 0),
+            _step("Cooking Meal", 1),
+            _step("Ready to Pickup", 2),
+            
+            const Spacer(),
+            if (currentStep >= 2) ...[
+              const Text("SCAN AT COUNTER", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const SizedBox(height: 20),
+              QrImageView(
+                data: 'SAINTS-ROW-VERIFIED',
+                version: QrVersions.auto,
+                size: 220.0,
+                backgroundColor: Colors.white,
+              ),
+            ] else 
+              const Center(child: CircularProgressIndicator(color: Color(0xFF6200EA))),
+            const Spacer(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _step(String title, int step) {
+    bool isActive = currentStep >= step;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 30),
+      child: Row(
+        children: [
+          Icon(isActive ? Icons.check_circle : Icons.circle_outlined, 
+               color: isActive ? const Color(0xFF6200EA) : Colors.grey, size: 30),
+          const SizedBox(width: 15),
+          Text(title, style: TextStyle(
+            fontSize: 18, 
+            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            color: isActive ? Colors.black : Colors.grey
+          )),
+        ],
+      ),
+    );
+  }
+}
