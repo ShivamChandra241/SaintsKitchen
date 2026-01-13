@@ -1,606 +1,1684 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'dart:math';
 
-void main() {
-  runApp(const FoodAppV8());
-}
-
-// ---------------------------------------------------------------------------
+// =============================================================
 // DATA MODELS
-// ---------------------------------------------------------------------------
+// =============================================================
+
+class FoodVariant {
+  final String name;
+  final double price;
+  FoodVariant(this.name, this.price);
+
+  Map<String, dynamic> toJson() => {'name': name, 'price': price};
+  factory FoodVariant.fromJson(Map<String, dynamic> json) =>
+      FoodVariant(json['name'], (json['price'] as num).toDouble());
+}
 
 class FoodItem {
   final String id;
   final String name;
-  final double price;
-  final String description; // Added for completeness
+  final String category;
+  final double basePrice;
+  final bool isVeg;
+  final String description;
+  final List<FoodVariant> variants;
 
-  FoodItem({
-    required this.id,
-    required this.name,
-    required this.price,
-    this.description = 'Delicious food item',
+  FoodItem(
+    this.id,
+    this.name,
+    this.category,
+    this.basePrice,
+    this.isVeg,
+    this.description, {
+    this.variants = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'category': category,
+        'basePrice': basePrice,
+        'isVeg': isVeg,
+        'description': description,
+        'variants': variants.map((v) => v.toJson()).toList(),
+      };
+
+  factory FoodItem.fromJson(Map<String, dynamic> json) => FoodItem(
+        json['id'],
+        json['name'],
+        json['category'],
+        (json['basePrice'] as num).toDouble(),
+        json['isVeg'],
+        json['description'],
+        variants: (json['variants'] as List?)
+                ?.map((v) => FoodVariant.fromJson(v))
+                .toList() ??
+            [],
+      );
 }
 
-class OrderItem {
+class CartItem {
+  final FoodItem item;
+  FoodVariant? selectedVariant;
+  int quantity;
+
+  CartItem(this.item, this.quantity, {this.selectedVariant});
+
+  double get unitPrice =>
+      (selectedVariant?.price ?? item.basePrice).toDouble();
+  double get totalPrice => unitPrice * quantity;
+  String get displayName =>
+      selectedVariant != null ? "${item.name} (${selectedVariant!.name})" : item.name;
+
+  Map<String, dynamic> toJson() => {
+        'item': item.toJson(),
+        'selectedVariant': selectedVariant?.toJson(),
+        'quantity': quantity,
+      };
+
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
+        FoodItem.fromJson(json['item']),
+        json['quantity'],
+        selectedVariant: json['selectedVariant'] != null
+            ? FoodVariant.fromJson(json['selectedVariant'])
+            : null,
+      );
+}
+
+class WalletTransaction {
   final String id;
-  final List<FoodItem> items;
-  final double totalAmount;
-  final String address;
+  final String title;
+  final double amount;
+  final bool isCredit;
+  final String method;
   final DateTime date;
-  double rating; // Mutable to allow updates
+  final String? meta; // UPI ID / Card hint / Order ID
 
-  OrderItem({
-    required this.id,
-    required this.items,
-    required this.totalAmount,
-    required this.address,
-    required this.date,
-    this.rating = 0.0,
+  WalletTransaction(
+    this.id,
+    this.title,
+    this.amount,
+    this.isCredit,
+    this.method,
+    this.date, {
+    this.meta,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'amount': amount,
+        'isCredit': isCredit,
+        'method': method,
+        'date': date.toIso8601String(),
+        'meta': meta,
+      };
+
+  factory WalletTransaction.fromJson(Map<String, dynamic> json) =>
+      WalletTransaction(
+        json['id'],
+        json['title'],
+        (json['amount'] as num).toDouble(),
+        json['isCredit'],
+        json['method'],
+        DateTime.parse(json['date']),
+        meta: json['meta'],
+      );
 }
 
-// ---------------------------------------------------------------------------
-// MAIN APP WIDGET
-// ---------------------------------------------------------------------------
+class Order {
+  final String id;
+  final List<CartItem> items;
+  final double subtotal;
+  final double discount;
+  final double paid;
+  final DateTime timestamp;
+  int? rating;
 
-class FoodAppV8 extends StatelessWidget {
-  const FoodAppV8({super.key});
+  Order(
+    this.id,
+    this.items,
+    this.subtotal,
+    this.discount,
+    this.paid,
+    this.timestamp, {
+    this.rating,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'items': items.map((i) => i.toJson()).toList(),
+        'subtotal': subtotal,
+        'discount': discount,
+        'paid': paid,
+        'timestamp': timestamp.toIso8601String(),
+        'rating': rating,
+      };
+
+  factory Order.fromJson(Map<String, dynamic> json) => Order(
+        json['id'],
+        (json['items'] as List)
+            .map((i) => CartItem.fromJson(i))
+            .toList(),
+        (json['subtotal'] as num).toDouble(),
+        (json['discount'] as num).toDouble(),
+        (json['paid'] as num).toDouble(),
+        DateTime.parse(json['timestamp']),
+        rating: json['rating'],
+      );
+}
+
+// =============================================================
+// HELPERS
+// =============================================================
+
+IconData getIconForFood(FoodItem item) {
+  final n = item.name.toLowerCase();
+  if (n.contains('pizza')) return Icons.local_pizza;
+  if (n.contains('burger')) return Icons.lunch_dining;
+  if (n.contains('biryani') || n.contains('rice')) return Icons.rice_bowl;
+  if (n.contains('coffee') || n.contains('chai') || n.contains('tea')) {
+    return Icons.local_cafe;
+  }
+  if (n.contains('ice cream') ||
+      n.contains('cake') ||
+      item.category == "Dessert") {
+    return Icons.icecream;
+  }
+  if (!item.isVeg || n.contains('chicken') || n.contains('fish')) {
+    return Icons.set_meal;
+  }
+  if (item.category == "Drinks") return Icons.local_drink;
+  return Icons.restaurant;
+}
+
+double cartSubtotal(List<CartItem> cart) =>
+    cart.fold(0, (s, i) => s + i.totalPrice);
+
+// =============================================================
+// MENU DATA (40+ ITEMS)
+// =============================================================
+
+final List<FoodItem> fullMenu = [
+  // THALI
+  FoodItem("101", "Chole Bhature Thali", "Thali", 120, true,
+      "2 Fluffy Bhature, Spicy Chole, Pickle, Salad & Lassi.",
+      variants: [FoodVariant("Half", 80), FoodVariant("Full", 120)]),
+  FoodItem("102", "Rajma Chawal Thali", "Thali", 110, true,
+      "Home-style Rajma, Basmati Rice, Raita & Papad.",
+      variants: [FoodVariant("Mini", 70), FoodVariant("Full", 110)]),
+  FoodItem("103", "Chicken Curry Thali", "Thali", 160, false,
+      "Spicy Chicken Curry, 2 Rotis, Jeera Rice, Salad.",
+      variants: [FoodVariant("Standard", 160), FoodVariant("Deluxe", 200)]),
+  FoodItem("104", "South Indian Thali", "Thali", 100, true,
+      "Idli, Vada, Mini Dosa, Sambar & Chutneys."),
+  FoodItem("105", "Veg Deluxe Thali", "Thali", 150, true,
+      "Paneer Butter Masala, Dal Makhani, 2 Naan, Rice & Sweet."),
+  FoodItem("106", "Fish Curry Thali", "Thali", 180, false,
+      "Coastal style Fish Curry, Steamed Rice, Sol Kadhi."),
+  FoodItem("107", "Egg Curry Thali", "Thali", 130, false,
+      "2 Egg Curry, 3 Chapatis, Rice, Salad."),
+  FoodItem("108", "Dal Baati Churma", "Thali", 140, true,
+      "Traditional Rajasthani Dal Baati with sweet Churma."),
+
+  // MEALS
+  FoodItem("201", "Classic Burger", "Meals", 60, false,
+      "Grilled patty, lettuce, tomato & house sauce."),
+  FoodItem("202", "Veggie Burger", "Meals", 50, true,
+      "Crispy potato & peas patty with mayo."),
+  FoodItem("203", "Cheese Pizza", "Meals", 99, true,
+      "Mozzarella cheese burst with basil.",
+      variants: [FoodVariant("Regular", 99), FoodVariant("Large", 199)]),
+  FoodItem("204", "Chicken Pizza", "Meals", 149, false,
+      "BBQ Chicken chunks, onions and paprika.",
+      variants: [FoodVariant("Regular", 149), FoodVariant("Large", 249)]),
+  FoodItem("205", "Veg Biryani", "Meals", 130, true,
+      "Aromatic basmati rice cooked with fresh veggies."),
+  FoodItem("206", "Chicken Biryani", "Meals", 180, false,
+      "Hyderabadi style dum biryani with raita."),
+  FoodItem("207", "Chicken Wrap", "Meals", 90, false,
+      "Spicy chicken strips in a soft tortilla wrap."),
+  FoodItem("208", "Paneer Tikka Roll", "Meals", 85, true,
+      "Char-grilled paneer cubes in roomali roti."),
+  FoodItem("209", "Pasta Alfredo", "Meals", 110, true,
+      "White sauce penne pasta with corn and olives."),
+  FoodItem("210", "Pasta Arrabbiata", "Meals", 110, true,
+      "Red sauce spicy pasta with basil."),
+  FoodItem("211", "Fried Rice", "Meals", 90, true,
+      "Indo-Chinese style veg fried rice."),
+  FoodItem("212", "Hakka Noodles", "Meals", 90, true,
+      "Stir-fried noodles with crunchy vegetables."),
+
+  // SNACKS
+  FoodItem("301", "Peri Peri Fries", "Snacks", 60, true,
+      "Crispy fries tossed in spicy peri peri mix.",
+      variants: [FoodVariant("Small", 40), FoodVariant("Large", 60)]),
+  FoodItem("302", "Veg Sandwich", "Snacks", 45, true,
+      "Grilled sandwich with cucumber & chutney."),
+  FoodItem("303", "Chicken Nuggets", "Snacks", 90, false,
+      "6 pieces of golden fried chicken nuggets."),
+  FoodItem("304", "Samosa (2pcs)", "Snacks", 30, true,
+      "Hot potato stuffed samosas with mint chutney."),
+  FoodItem("305", "Garlic Bread", "Snacks", 70, true,
+      "Toasted baguette with garlic butter."),
+  FoodItem("306", "Vada Pav", "Snacks", 25, true,
+      "Mumbai style spicy potato slider."),
+  FoodItem("307", "Chicken Popcorn", "Snacks", 100, false,
+      "Bite sized crunchy fried chicken."),
+  FoodItem("308", "Paneer 65", "Snacks", 110, true,
+      "Spicy deep fried paneer cubes."),
+  FoodItem("309", "Nachos with Salsa", "Snacks", 80, true,
+      "Crispy chips with tangy salsa dip."),
+  FoodItem("310", "Spring Rolls", "Snacks", 70, true,
+      "Crispy fried rolls stuffed with veggies."),
+
+  // DRINKS
+  FoodItem("401", "Coca Cola", "Drinks", 25, true, "Chilled fizzy cola.",
+      variants: [FoodVariant("Can", 25), FoodVariant("Bottle", 40)]),
+  FoodItem("402", "Cold Coffee", "Drinks", 60, true,
+      "Creamy blended coffee with ice cream."),
+  FoodItem("403", "Mango Lassi", "Drinks", 50, true,
+      "Thick yogurt drink with fresh mango pulp."),
+  FoodItem("404", "Masala Chai", "Drinks", 20, true,
+      "Hot tea infused with cardamom & ginger."),
+  FoodItem("405", "Mint Mojito", "Drinks", 70, true,
+      "Refreshing lime and mint virgin mojito."),
+  FoodItem("406", "Orange Juice", "Drinks", 60, true,
+      "Freshly squeezed orange juice."),
+  FoodItem("407", "Chocolate Milkshake", "Drinks", 80, true,
+      "Thick chocolate shake with brownie crumbs."),
+  FoodItem("408", "Lemon Iced Tea", "Drinks", 50, true,
+      "Chilled tea with a hint of lemon."),
+  FoodItem("409", "Water Bottle", "Drinks", 20, true,
+      "1 Litre mineral water bottle."),
+
+  // DESSERTS
+  FoodItem("501", "Choco Lava Cake", "Dessert", 80, true,
+      "Warm chocolate cake with a gooey center."),
+  FoodItem("502", "Gulab Jamun (2pcs)", "Dessert", 40, true,
+      "Fried dough balls soaked in sugar syrup."),
+  FoodItem("503", "Ice Cream Scoop", "Dessert", 50, true,
+      "Vanilla, Strawberry or Chocolate scoop."),
+  FoodItem("504", "Brownie with Ice Cream", "Dessert", 100, true,
+      "Walnut brownie topped with vanilla ice cream."),
+];
+
+// =============================================================
+// APP ROOT
+// =============================================================
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const SaintsKitchenApp());
+}
+
+class SaintsKitchenApp extends StatelessWidget {
+  const SaintsKitchenApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Saints Kitchen',
       debugShowCheckedModeBanner: false,
-      title: 'Food Delivery V8',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.grey[50],
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF6200EA),
+          secondary: const Color(0xFFFFD700),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF8F9FE),
+        textTheme: GoogleFonts.poppinsTextTheme(),
       ),
-      home: const MainScreen(),
+      home: const SplashScreen(),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// MAIN SCREEN (STATE & LOGIC)
-// ---------------------------------------------------------------------------
+// Next parts will continue from here (Splash, Login, MainShell, etc.)
+// =============================================================
+// SPLASH SCREEN
+// =============================================================
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), _checkLogin);
+  }
+
+  Future<void> _checkLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) =>
+            isLoggedIn ? const MainScreen() : const LoginScreen(),
+        transitionsBuilder: (_, a, __, c) =>
+            FadeTransition(opacity: a, child: c),
+        transitionDuration: const Duration(milliseconds: 700),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF6200EA), Color(0xFF3700B3)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 20,
+                        )
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.restaurant_menu,
+                      color: Color(0xFF6200EA),
+                      size: 60,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    "SAINTS KITCHEN",
+                    style: GoogleFonts.bebasNeue(
+                      fontSize: 38,
+                      color: Colors.white,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "Saints Row III School",
+                    style: GoogleFonts.poppins(
+                      color: Colors.white70,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  const CircularProgressIndicator(color: Colors.white),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Loading Menu...",
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Positioned(
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
+                  "v7.0.0 • Made with ❤️ by Fantastic 6",
+                  style: TextStyle(color: Colors.white30, fontSize: 10),
+                ),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================
+// LOGIN SCREEN
+// =============================================================
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _nameCtrl = TextEditingController();
+  final _idCtrl = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _login() async {
+    if (_nameCtrl.text.trim().isEmpty || _idCtrl.text.trim().isEmpty) return;
+
+    setState(() => _loading = true);
+    await Future.delayed(const Duration(seconds: 1));
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
+    await prefs.setString('name', _nameCtrl.text.trim());
+    await prefs.setString('id', _idCtrl.text.trim());
+
+    if (!prefs.containsKey('wallet')) {
+      await prefs.setDouble('wallet', 0.0);
+    }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const MainScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        padding: const EdgeInsets.all(30),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF6200EA), Color(0xFF9900F0)],
+          ),
+        ),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(30),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.fastfood_rounded,
+                  size: 60,
+                  color: Color(0xFF6200EA),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Student Login",
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: "Name",
+                    prefixIcon: Icon(Icons.person),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: _idCtrl,
+                  decoration: const InputDecoration(
+                    labelText: "Reg No",
+                    prefixIcon: Icon(Icons.badge),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6200EA),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _loading ? null : _login,
+                    child: _loading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text("LOGIN"),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Next part continues with MainScreen + Navigation shell
+// =============================================================
+// MAIN SHELL
+// =============================================================
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
-
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // --- STATE VARIABLES ---
-  
-  // Wallet & Cart
-  double walletBalance = 1500.0; // Starting balance
-  List<FoodItem> cart = [];
-  List<OrderItem> orderHistory = [];
+  int _idx = 0;
+  List<CartItem> cart = [];
 
-  // Address Logic
-  String? selectedAddress;
-  final List<String> addresses = [
-    "Home - 123 Green St, Apt 4B",
-    "Office - Tech Park, Building 5",
-    "Partner's House - 789 Lake View",
-  ];
-
-  // Coupon Logic
-  bool isCouponApplied = false;
-  final String couponCode = "SAVE50";
-  final double deliveryFee = 40.0;
-  final double couponDiscount = 50.0;
-
-  // --- MENU DATA ---
-  final List<FoodItem> menu = [
-    FoodItem(id: '1', name: 'Chicken Pizza', price: 299, description: 'Cheesy chicken loaded pizza'),
-    FoodItem(id: '2', name: 'Veg Burger', price: 129, description: 'Crispy vegetable patty'),
-    FoodItem(id: '3', name: 'Fried Chicken Bucket', price: 499, description: '6 pieces of crispy chicken'),
-    FoodItem(id: '4', name: 'Iced Coffee', price: 149, description: 'Cold brew with milk'),
-    FoodItem(id: '5', name: 'Pepperoni Pizza', price: 349, description: 'Classic pork pepperoni'),
-    FoodItem(id: '6', name: 'Chicken Pasta', price: 219, description: 'White sauce pasta with chicken'),
-  ];
-
-  // --- LOGIC FUNCTIONS ---
-
-  /// Fix #2: Smart Icon Logic based on Name
-  IconData getIconForName(String name) {
-    String lower = name.toLowerCase();
-    if (lower.contains('pizza')) return Icons.local_pizza;
-    if (lower.contains('burger')) return Icons.lunch_dining;
-    if (lower.contains('coffee') || lower.contains('tea') || lower.contains('drink')) return Icons.local_cafe;
-    if (lower.contains('chicken') && !lower.contains('pizza') && !lower.contains('burger')) return Icons.set_meal;
-    if (lower.contains('ice cream') || lower.contains('dessert')) return Icons.icecream;
-    return Icons.restaurant; // Default fallback
-  }
-
-  /// Fix #1: Dynamic Calculation (Cart + Delivery - Coupon)
-  double get cartItemTotal {
-    return cart.fold(0, (sum, item) => sum + item.price);
-  }
-
-  double get finalTotalAmount {
-    if (cart.isEmpty) return 0.0;
-    
-    double total = cartItemTotal + deliveryFee;
-    
-    // Only apply discount if the total is high enough to warrant it (optional logic, but good for safety)
-    if (isCouponApplied) {
-      total -= couponDiscount;
-    }
-    
-    return total < 0 ? 0 : total; // Never return negative amount
-  }
-
-  void addToCart(FoodItem item) {
+  void addToCart(FoodItem item, FoodVariant? variant, int qty) {
+    // Merge logic: same item + same variant -> increase quantity
+    final existing = cart.indexWhere((c) =>
+        c.item.id == item.id &&
+        ((c.selectedVariant == null && variant == null) ||
+            (c.selectedVariant?.name == variant?.name)));
     setState(() {
-      cart.add(item);
+      if (existing != -1) {
+        cart[existing].quantity += qty;
+      } else {
+        cart.add(CartItem(item, qty, selectedVariant: variant));
+      }
     });
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("${item.name} added to cart"),
+        content: Text("${item.name} added"),
         duration: const Duration(milliseconds: 600),
-        action: SnackBarAction(label: 'UNDO', onPressed: () {
-          setState(() => cart.removeLast());
-        }),
       ),
     );
   }
 
-  void removeFromCart(int index) {
-    setState(() {
-      cart.removeAt(index);
-    });
+  void clearCart() => setState(() => cart.clear());
+
+  @override
+  Widget build(BuildContext context) {
+    final tabs = [
+      MenuPage(onAddToCart: addToCart),
+      OrdersPage(currentCart: cart, onClearCart: clearCart),
+      const WalletPage(),
+      const ProfilePage(),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(index: _idx, children: tabs),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _idx,
+        onDestinationSelected: (i) => setState(() => _idx = i),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.restaurant_menu), label: "Menu"),
+          NavigationDestination(
+              icon: Icon(Icons.receipt_long), label: "Orders"),
+          NavigationDestination(
+              icon: Icon(Icons.account_balance_wallet), label: "Wallet"),
+          NavigationDestination(icon: Icon(Icons.person), label: "Profile"),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================
+// MENU PAGE
+// =============================================================
+
+class MenuPage extends StatefulWidget {
+  final Function(FoodItem, FoodVariant?, int) onAddToCart;
+  const MenuPage({super.key, required this.onAddToCart});
+
+  @override
+  State<MenuPage> createState() => _MenuPageState();
+}
+
+class _MenuPageState extends State<MenuPage> {
+  String selectedCat = "All";
+  String searchQuery = "";
+  final categories = ["All", "Thali", "Meals", "Snacks", "Drinks", "Dessert"];
+
+  List<FoodItem> get filteredItems {
+    return fullMenu.where((item) {
+      final matchesCat =
+          selectedCat == "All" || item.category == selectedCat;
+      final matchesSearch =
+          item.name.toLowerCase().contains(searchQuery.toLowerCase());
+      return matchesCat && matchesSearch;
+    }).toList();
   }
 
-  void toggleCoupon(bool value) {
-    setState(() {
-      isCouponApplied = value;
-    });
+  void _showProductDetails(FoodItem item) {
+    FoodVariant? selectedVar =
+        item.variants.isNotEmpty ? item.variants.first : null;
+    int qty = 1;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+          ),
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 50,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: Icon(
+                  getIconForFood(item),
+                  size: 80,
+                  color: const Color(0xFF6200EA),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(item.name,
+                  style: const TextStyle(
+                      fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Text(item.description,
+                  style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 15,
+                      height: 1.5)),
+              const SizedBox(height: 20),
+              if (item.variants.isNotEmpty) ...[
+                const Text("Select Size/Variant:",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Wrap(
+                  spacing: 10,
+                  children: item.variants
+                      .map((v) => ChoiceChip(
+                            label: Text("${v.name} - ₹${v.price}"),
+                            selected: selectedVar == v,
+                            onSelected: (b) =>
+                                setSheetState(() => selectedVar = v),
+                            selectedColor: const Color(0xFFFFD700),
+                          ))
+                      .toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Quantity",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Container(
+                    decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Row(children: [
+                      IconButton(
+                          onPressed: () =>
+                              qty > 1 ? setSheetState(() => qty--) : null,
+                          icon: const Icon(Icons.remove)),
+                      Text("$qty",
+                          style:
+                              const TextStyle(fontWeight: FontWeight.bold)),
+                      IconButton(
+                          onPressed: () =>
+                              setSheetState(() => qty++),
+                          icon: const Icon(Icons.add)),
+                    ]),
+                  )
+                ],
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6200EA),
+                      foregroundColor: Colors.white),
+                  onPressed: () {
+                    widget.onAddToCart(item, selectedVar, qty);
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                      "ADD TO CART - ₹${((selectedVar?.price ?? item.basePrice) * qty).toInt()}"),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  /// Fix #4: Rating System Update
-  void rateOrder(String orderId, double stars) {
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: TextField(
+              onChanged: (v) => setState(() => searchQuery = v),
+              decoration: InputDecoration(
+                hintText: "Search 40+ items...",
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15)),
+              ),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: categories
+                  .map((cat) => Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: ChoiceChip(
+                          label: Text(cat),
+                          selected: selectedCat == cat,
+                          onSelected: (b) =>
+                              setState(() => selectedCat = cat),
+                          selectedColor: const Color(0xFF6200EA),
+                          labelStyle: TextStyle(
+                              color: selectedCat == cat
+                                  ? Colors.white
+                                  : Colors.black),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(20),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+              ),
+              itemCount: filteredItems.length,
+              itemBuilder: (context, index) {
+                final item = filteredItems[index];
+                return GestureDetector(
+                  onTap: () => _showProductDetails(item),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black12, blurRadius: 5)
+                      ],
+                    ),
+                    child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(getIconForFood(item),
+                              size: 45,
+                              color: const Color(0xFF6200EA)),
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(item.name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          Text(
+                            item.variants.isNotEmpty
+                                ? "From ₹${item.variants.first.price}"
+                                : "₹${item.basePrice}",
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ]),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Next part continues with Orders (Cart + Tracking + Rating + Checkout)
+// =============================================================
+// ORDERS PAGE
+// =============================================================
+
+class OrdersPage extends StatefulWidget {
+  final List<CartItem> currentCart;
+  final VoidCallback onClearCart;
+  const OrdersPage(
+      {super.key, required this.currentCart, required this.onClearCart});
+
+  @override
+  State<OrdersPage> createState() => _OrdersPageState();
+}
+
+class _OrdersPageState extends State<OrdersPage> {
+  List<Order> orderHistory = [];
+  final _couponCtrl = TextEditingController();
+  double discount = 0.0;
+  bool codeApplied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hList = prefs.getString('order_history');
+    if (hList != null) {
+      setState(() {
+        orderHistory = (jsonDecode(hList) as List)
+            .map((i) => Order.fromJson(i))
+            .toList()
+            .reversed
+            .toList();
+      });
+    }
+  }
+
+  void _applyCoupon() {
+    if (_couponCtrl.text.toUpperCase() == "SAINTS50") {
+      setState(() {
+        discount = 50.0;
+        codeApplied = true;
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Coupon Applied! ₹50 OFF")));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Invalid Coupon"), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _placeOrder() async {
+    if (widget.currentCart.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final double wallet = prefs.getDouble('wallet') ?? 0.0;
+
+    final double subtotal = cartSubtotal(widget.currentCart);
+    final double finalTotal = max(0, subtotal - discount);
+
+    if (wallet < finalTotal) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Insufficient Balance!"),
+          backgroundColor: Colors.red));
+      return;
+    }
+
+    // CONFIRMATION
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TweenAnimationBuilder(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.elasticOut,
+              builder: (context, double value, child) =>
+                  Transform.scale(scale: value, child: const Icon(Icons.check_circle, color: Colors.green, size: 80)),
+            ),
+            const SizedBox(height: 20),
+            const Text("Order Confirmed!",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ]),
+        ),
+      ),
+    );
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) Navigator.pop(context);
+
+    // DEDUCT WALLET
+    await prefs.setDouble('wallet', wallet - finalTotal);
+
+    // LOG TRANSACTION
+    final tList = prefs.getString('transactions');
+    List<WalletTransaction> transactions = [];
+    if (tList != null) {
+      transactions = (jsonDecode(tList) as List)
+          .map((i) => WalletTransaction.fromJson(i))
+          .toList();
+    }
+    final orderId = "SK-${Random().nextInt(9999)}";
+    transactions.insert(
+        0,
+        WalletTransaction(
+          "ORD-${Random().nextInt(9999)}",
+          "Food Order",
+          finalTotal,
+          false,
+          "Wallet",
+          DateTime.now(),
+          meta: orderId,
+        ));
+    await prefs.setString(
+        'transactions', jsonEncode(transactions.map((e) => e.toJson()).toList()));
+
+    // SAVE ORDER
+    final newOrder = Order(orderId, List.from(widget.currentCart), subtotal,
+        discount, finalTotal, DateTime.now());
+    final hList = prefs.getString('order_history');
+    List<Order> history = [];
+    if (hList != null) {
+      history = (jsonDecode(hList) as List)
+          .map((i) => Order.fromJson(i))
+          .toList();
+    }
+    history.add(newOrder);
+    await prefs.setString(
+        'order_history', jsonEncode(history.map((e) => e.toJson()).toList()));
+
+    widget.onClearCart();
     setState(() {
-      final index = orderHistory.indexWhere((element) => element.id == orderId);
-      if (index != -1) {
-        orderHistory[index].rating = stars;
+      discount = 0.0;
+      codeApplied = false;
+      _couponCtrl.clear();
+    });
+    _loadHistory();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("₹${finalTotal.toInt()} deducted from wallet")));
+  }
+
+  void _rateOrder(Order o, int stars) async {
+    setState(() => o.rating = stars);
+    final prefs = await SharedPreferences.getInstance();
+    final hList = prefs.getString('order_history');
+    if (hList != null) {
+      List<Order> history = (jsonDecode(hList) as List)
+          .map((i) => Order.fromJson(i))
+          .toList();
+      final idx = history.indexWhere((e) => e.id == o.id);
+      if (idx != -1) {
+        history[idx].rating = stars;
+        await prefs.setString(
+            'order_history', jsonEncode(history.map((e) => e.toJson()).toList()));
+      }
+    }
+  }
+
+  Widget _buildStep(String title, bool isActive, bool isCompleted, IconData icon) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Column(children: [
+        Icon(icon,
+            color: isCompleted ? Colors.green : (isActive ? Colors.orange : Colors.grey)),
+        Container(width: 2, height: 30, color: Colors.grey[300]),
+      ]),
+      const SizedBox(width: 15),
+      Text(title,
+          style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal))
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("My Orders"),
+          bottom: const TabBar(tabs: [Tab(text: "Cart"), Tab(text: "Track Orders")]),
+        ),
+        body: TabBarView(
+          children: [
+            // CART TAB
+            widget.currentCart.isEmpty
+                ? const Center(child: Text("Cart Empty"))
+                : Column(children: [
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: widget.currentCart.length,
+                        itemBuilder: (c, i) {
+                          final ci = widget.currentCart[i];
+                          return ListTile(
+                            title: Text(ci.displayName),
+                            subtitle: Row(children: [
+                              IconButton(
+                                  icon: const Icon(Icons.remove),
+                                  onPressed: () =>
+                                      setState(() => ci.quantity = max(1, ci.quantity - 1))),
+                              Text("${ci.quantity}"),
+                              IconButton(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: () => setState(() => ci.quantity++)),
+                            ]),
+                            trailing: Text("₹${ci.totalPrice.toInt()}"),
+                          );
+                        },
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      color: Colors.white,
+                      child: Column(children: [
+                        Row(children: [
+                          Expanded(
+                              child: TextField(
+                                  controller: _couponCtrl,
+                                  decoration: const InputDecoration(
+                                      hintText: "Code: SAINTS50",
+                                      border: OutlineInputBorder()))),
+                          const SizedBox(width: 10),
+                          ElevatedButton(onPressed: _applyCoupon, child: const Text("APPLY"))
+                        ]),
+                        const SizedBox(height: 10),
+                        Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text("Total"),
+                              Text(
+                                "₹${max(0, cartSubtotal(widget.currentCart) - discount).toInt()}",
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 18),
+                              )
+                            ]),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6200EA),
+                                foregroundColor: Colors.white),
+                            onPressed: _placeOrder,
+                            child: const Text("PAY & ORDER"),
+                          ),
+                        )
+                      ]),
+                    )
+                  ]),
+
+            // TRACKING TAB
+            ListView.builder(
+              padding: const EdgeInsets.all(15),
+              itemCount: orderHistory.length,
+              itemBuilder: (context, index) {
+                final o = orderHistory[index];
+                final mins = DateTime.now().difference(o.timestamp).inMinutes;
+                bool cooking = mins >= 1;
+                bool ready = mins >= 2;
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  child: ExpansionTile(
+                    title: Text("Order #${o.id}"),
+                    subtitle:
+                        Text(DateFormat('dd MMM, hh:mm a').format(o.timestamp)),
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(children: [
+                          _buildStep("Order Placed", true, cooking, Icons.receipt),
+                          _buildStep("Cooking", cooking, ready, Icons.soup_kitchen),
+                          _buildStep("Ready to Pickup", ready, ready, Icons.check_circle),
+                          const SizedBox(height: 10),
+
+                          ...o.items.map((i) => Row(
+                                children: [
+                                  const Icon(Icons.circle, size: 6),
+                                  const SizedBox(width: 6),
+                                  Expanded(child: Text("${i.displayName} x${i.quantity}")),
+                                  Text("₹${i.totalPrice.toInt()}"),
+                                ],
+                              )),
+
+                          const Divider(),
+                          Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text("Paid"),
+                                Text("₹${o.paid.toInt()}",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green))
+                              ]),
+
+                          const SizedBox(height: 10),
+                          if (ready) ...[
+                            QrImageView(data: o.id, size: 100),
+                            const SizedBox(height: 6),
+                            const Text("SCAN AT COUNTER",
+                                style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 10),
+                            const Text("Rate your food:"),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(5, (s) {
+                                return IconButton(
+                                  icon: Icon(
+                                      s < (o.rating ?? 0)
+                                          ? Icons.star
+                                          : Icons.star_border,
+                                      color: Colors.amber),
+                                  onPressed: () => _rateOrder(o, s + 1),
+                                );
+                              }),
+                            ),
+                          ] else
+                            const LinearProgressIndicator(),
+                        ]),
+                      )
+                    ],
+                  ),
+                );
+              },
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Next part continues with Wallet + Deposit + Transaction Details
+// =============================================================
+// WALLET PAGE
+// =============================================================
+
+class WalletPage extends StatefulWidget {
+  const WalletPage({super.key});
+  @override
+  State<WalletPage> createState() => _WalletPageState();
+}
+
+class _WalletPageState extends State<WalletPage> {
+  double wallet = 0.0;
+  List<WalletTransaction> transactions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      wallet = prefs.getDouble('wallet') ?? 0.0;
+      final tList = prefs.getString('transactions');
+      if (tList != null) {
+        transactions = (jsonDecode(tList) as List)
+            .map((i) => WalletTransaction.fromJson(i))
+            .toList();
       }
     });
   }
 
-  /// Fix #3, #5, #6: Checkout with Validation, Deduction, and Archiving
-  void handleCheckout() {
-    // 1. Check if empty
-    if (cart.isEmpty) {
-      _showError("Your cart is empty!");
-      return;
-    }
+  void _showDepositDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const DepositSheet(),
+    ).then((_) => _loadData());
+  }
 
-    // 2. Check Address (Fix #6)
-    if (selectedAddress == null) {
-      _showError("Please select a delivery address.");
-      return;
-    }
-
-    // 3. Check Wallet Balance (Fix #5)
-    if (walletBalance < finalTotalAmount) {
-      _showError("Insufficient Funds! Need ₹${(finalTotalAmount - walletBalance).toStringAsFixed(0)} more.");
-      return;
-    }
-
-    // 4. PROCESS ORDER
-    setState(() {
-      // Deduct Money
-      walletBalance -= finalTotalAmount;
-
-      // Add to History (Fix #3 - Saving snapshot of items)
-      final newOrder = OrderItem(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        items: List.from(cart), // Copy current list
-        totalAmount: finalTotalAmount,
-        address: selectedAddress!,
-        date: DateTime.now(),
-      );
-      
-      // Add to start of list (newest first)
-      orderHistory.insert(0, newOrder);
-
-      // Clear Cart
-      cart.clear();
-      isCouponApplied = false;
-    });
-
-    // 5. Success Feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Order Placed Successfully!"),
-        backgroundColor: Colors.green,
+  void _showTxnDetails(WalletTransaction t) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Transaction Details"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _row("Type", t.title),
+            _row("Amount", "₹${t.amount.toInt()}"),
+            _row("Method", t.method),
+            if (t.meta != null) _row("Info", t.meta!),
+            _row("Date", DateFormat('dd MMM yyyy, hh:mm a').format(t.date)),
+            _row("Txn ID", t.id),
+            const SizedBox(height: 10),
+            const Text("Status: Successful",
+                style: TextStyle(color: Colors.green)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+        ],
       ),
     );
-    
-    // Switch to Orders tab to see it
-    setState(() {
-      _selectedIndex = 2; 
-    });
   }
 
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
-  }
-
-  // --- NAVIGATION STATE ---
-  int _selectedIndex = 0;
+  Widget _row(String k, String v) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          children: [
+            SizedBox(width: 80, child: Text("$k:")),
+            Expanded(child: Text(v, style: const TextStyle(fontWeight: FontWeight.bold))),
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = [
-      _buildMenuPage(),
-      _buildCartPage(),
-      _buildOrdersPage(),
-    ];
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_selectedIndex == 0 ? "Food Menu" : _selectedIndex == 1 ? "My Cart" : "Order History"),
-        backgroundColor: Colors.deepOrange,
-        foregroundColor: Colors.white,
-        actions: [
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              margin: const EdgeInsets.only(right: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                "Wallet: ₹${walletBalance.toStringAsFixed(0)}",
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
-              ),
+      appBar: AppBar(title: const Text("Wallet")),
+      body: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(25),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [Color(0xFF6200EA), Color(0xFF651FFF)]),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Balance",
+                      style: TextStyle(color: Colors.white, fontSize: 18)),
+                  Text("₹${wallet.toInt()}",
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold)),
+                ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                    onPressed: _showDepositDialog,
+                    child: const Text("ADD MONEY"))),
+          Expanded(
+            child: ListView.builder(
+              itemCount: transactions.length,
+              itemBuilder: (c, i) {
+                final t = transactions[i];
+                return ListTile(
+                  onTap: () => _showTxnDetails(t),
+                  leading: Icon(
+                      t.isCredit
+                          ? Icons.arrow_downward
+                          : Icons.arrow_upward,
+                      color: t.isCredit ? Colors.green : Colors.red),
+                  title: Text(t.title),
+                  subtitle: Text(DateFormat('dd MMM').format(t.date)),
+                  trailing: Text(
+                    "${t.isCredit ? '+' : '-'} ₹${t.amount.toInt()}",
+                    style: TextStyle(
+                        color: t.isCredit ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold),
+                  ),
+                );
+              },
             ),
           )
         ],
       ),
-      body: pages[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (idx) => setState(() => _selectedIndex = idx),
-        indicatorColor: Colors.orange.shade200,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.restaurant_menu),
-            label: 'Menu',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
+    );
+  }
+}
+
+// =============================================================
+// DEPOSIT SHEET
+// =============================================================
+
+class DepositSheet extends StatefulWidget {
+  const DepositSheet({super.key});
+  @override
+  State<DepositSheet> createState() => _DepositSheetState();
+}
+
+class _DepositSheetState extends State<DepositSheet> {
+  int _method = 0; // 0=Card, 1=UPI
+  final _amountCtrl = TextEditingController();
+  final _cardCtrl = TextEditingController();
+  final _cvvCtrl = TextEditingController();
+  final _expiryCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _upiCtrl = TextEditingController();
+  bool _loading = false;
+
+  Future<void> _pay() async {
+    if (_amountCtrl.text.isEmpty) return;
+    setState(() => _loading = true);
+
+    await Future.delayed(const Duration(seconds: 2));
+    final prefs = await SharedPreferences.getInstance();
+    double amt = double.parse(_amountCtrl.text);
+    double cur = prefs.getDouble('wallet') ?? 0;
+    await prefs.setDouble('wallet', cur + amt);
+
+    final tList = prefs.getString('transactions');
+    List<WalletTransaction> ts = [];
+    if (tList != null) {
+      ts = (jsonDecode(tList) as List)
+          .map((i) => WalletTransaction.fromJson(i))
+          .toList();
+    }
+
+    final meta = _method == 0
+        ? "Card ****${_cardCtrl.text.padLeft(16, '0').substring(12)}"
+        : _upiCtrl.text;
+
+    ts.insert(
+        0,
+        WalletTransaction(
+          "TX-${Random().nextInt(9999)}",
+          "Deposit",
+          amt,
+          true,
+          _method == 0 ? "Card" : "UPI",
+          DateTime.now(),
+          meta: meta,
+        ));
+
+    await prefs.setString(
+        'transactions', jsonEncode(ts.map((e) => e.toJson()).toList()));
+
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Money Added!")));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text("Add Money",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 10),
+        Row(children: [
+          ChoiceChip(
+              label: const Text("Card"),
+              selected: _method == 0,
+              onSelected: (b) => setState(() => _method = 0)),
+          const SizedBox(width: 10),
+          ChoiceChip(
+              label: const Text("UPI"),
+              selected: _method == 1,
+              onSelected: (b) => setState(() => _method = 1)),
+        ]),
+        const SizedBox(height: 15),
+        TextField(
+            controller: _amountCtrl,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+                labelText: "Amount (₹)", border: OutlineInputBorder())),
+        const SizedBox(height: 10),
+
+        if (_method == 0) ...[
+          TextField(
+              controller: _cardCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 16,
+              decoration: const InputDecoration(
+                  labelText: "Card Number",
+                  counterText: "",
+                  border: OutlineInputBorder())),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+                child: TextField(
+                    controller: _expiryCtrl,
+                    decoration: const InputDecoration(
+                        labelText: "MM/YY",
+                        border: OutlineInputBorder()))),
+            const SizedBox(width: 10),
+            Expanded(
+                child: TextField(
+                    controller: _cvvCtrl,
+                    obscureText: true,
+                    maxLength: 3,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: "CVV",
+                        counterText: "",
+                        border: OutlineInputBorder()))),
+          ]),
+          const SizedBox(height: 10),
+          TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                  labelText: "Cardholder Name",
+                  border: OutlineInputBorder())),
+        ],
+
+        if (_method == 1)
+          TextField(
+              controller: _upiCtrl,
+              decoration: const InputDecoration(
+                  labelText: "UPI ID (e.g. name@upi)",
+                  border: OutlineInputBorder())),
+
+        const SizedBox(height: 20),
+        SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+                onPressed: _pay,
+                child: _loading
+                    ? const CircularProgressIndicator()
+                    : const Text("PAY NOW"))),
+        const SizedBox(height: 20),
+      ]),
+    );
+  }
+}
+
+// Next part continues with Profile Page (Easter Egg, About, Logout)
+// =============================================================
+// PROFILE PAGE
+// =============================================================
+
+class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  String name = "";
+  String id = "";
+  int eggTaps = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      name = prefs.getString('name') ?? "";
+      id = prefs.getString('id') ?? "";
+    });
+  }
+
+  void _showAbout() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("About Saints Kitchen"),
+        content: const Text(
+          "Saints Kitchen v7.0\n\n"
+          "Built by Team Fantastic 6 to reduce canteen overcrowding and waiting time.\n\n"
+          "Students can:\n"
+          "• Order food in advance\n"
+          "• Pay digitally using wallet\n"
+          "• Track order status\n"
+          "• Collect using QR\n\n"
+          "Made for Saints Row III School.",
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
         ],
       ),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // PAGE 1: MENU
-  // -------------------------------------------------------------------------
-  Widget _buildMenuPage() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(12),
-      itemCount: menu.length,
-      itemBuilder: (context, index) {
-        final item = menu[index];
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(12),
-            leading: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(getIconForName(item.name), color: Colors.deepOrange, size: 30),
-            ),
-            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.description, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text("₹${item.price}", style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            trailing: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepOrange,
-                foregroundColor: Colors.white,
-                shape: const CircleBorder(),
-                padding: const EdgeInsets.all(10),
-              ),
-              onPressed: () => addToCart(item),
-              child: const Icon(Icons.add),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // PAGE 2: CART (Where most fixes happen)
-  // -------------------------------------------------------------------------
-  Widget _buildCartPage() {
-    if (cart.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text("Your cart is empty", style: TextStyle(fontSize: 18, color: Colors.grey)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => setState(() => _selectedIndex = 0),
-              child: const Text("Browse Menu"),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        // Cart Items List
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: cart.length,
-            separatorBuilder: (ctx, i) => const Divider(),
-            itemBuilder: (context, index) {
-              final item = cart[index];
-              return ListTile(
-                leading: Icon(getIconForName(item.name), color: Colors.grey[700]),
-                title: Text(item.name),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text("₹${item.price}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => removeFromCart(index),
-                    ),
-                  ],
-                ),
+  void _showSupport() {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text("Saints Support",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          ListTile(
+            leading: const Icon(Icons.warning),
+            title: const Text("Raise a Complaint"),
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Ticket #SR-${Random().nextInt(999)} Created.")),
               );
             },
           ),
-        ),
-
-        // Checkout Section
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
-            ],
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Address Selector
-              const Text("Deliver to:", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: selectedAddress,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                  prefixIcon: Icon(Icons.location_on, color: Colors.deepOrange),
-                ),
-                hint: const Text("Select your address..."),
-                items: addresses.map((addr) {
-                  return DropdownMenuItem(value: addr, child: Text(addr, style: const TextStyle(fontSize: 14)));
-                }).toList(),
-                onChanged: (val) {
-                  setState(() => selectedAddress = val);
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Coupon Switch
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade200),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Apply Coupon '$couponCode'", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                        const Text("Save ₹50 instantly", style: TextStyle(fontSize: 10, color: Colors.green)),
-                      ],
-                    ),
-                    Switch(
-                      value: isCouponApplied,
-                      activeColor: Colors.green,
-                      onChanged: toggleCoupon,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Bill Breakdown
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text("Item Total"),
-                Text("₹$cartItemTotal"),
-              ]),
-              const SizedBox(height: 4),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text("Delivery Fee"),
-                Text("₹$deliveryFee"),
-              ]),
-              if (isCouponApplied)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text("Coupon Discount", style: TextStyle(color: Colors.green)),
-                    Text("- ₹$couponDiscount", style: const TextStyle(color: Colors.green)),
-                  ]),
-                ),
-              
-              const Divider(height: 24),
-              
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text("Total Amount", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                Text("₹$finalTotalAmount", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.deepOrange)),
-              ]),
-
-              const SizedBox(height: 16),
-
-              // Checkout Button
-              ElevatedButton(
-                onPressed: handleCheckout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepOrange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text("PLACE ORDER", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ]),
+      ),
     );
   }
 
-  // -------------------------------------------------------------------------
-  // PAGE 3: ORDERS (History & Rating)
-  // -------------------------------------------------------------------------
-  Widget _buildOrdersPage() {
-    if (orderHistory.isEmpty) {
-      return const Center(child: Text("No orders yet."));
-    }
+  void _showEasterEgg() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D2D),
+        title: const Text("⚡ FANTASTIC 6 ⚡",
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          "Mohammed Shameem J\n"
+          "Aryaman Yadav\n"
+          "Shivam Chandra\n"
+          "Krishna Santhanam\n\n"
+          "\"Built for Saints, by Saints.\"",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close", style: TextStyle(color: Colors.white)))
+        ],
+      ),
+    );
+  }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: orderHistory.length,
-      itemBuilder: (context, index) {
-        final order = orderHistory[index];
-        return Card(
-          elevation: 3,
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header: ID and Date
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Order #${order.id.substring(order.id.length - 6)}", 
-                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(
-                      "${order.date.day}/${order.date.month} ${order.date.hour}:${order.date.minute.toString().padLeft(2, '0')}",
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const Divider(),
-                
-                // Address
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Expanded(child: Text(order.address, style: const TextStyle(color: Colors.black87))),
-                  ],
-                ),
-                const SizedBox(height: 10),
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (r) => false,
+    );
+  }
 
-                // Items List
-                ...order.items.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4.0),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.circle, size: 8, color: Colors.deepOrange),
-                      const SizedBox(width: 8),
-                      Text(item.name),
-                      const Spacer(),
-                      Text("₹${item.price}", style: const TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                )),
-                
-                const Divider(),
-                
-                // Total
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("Amount Paid:", style: TextStyle(fontWeight: FontWeight.w600)),
-                    Text("₹${order.totalAmount}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                  ],
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Rating Section (Fix #4)
-                const Text("Rate this order:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (starIndex) {
-                    return InkWell(
-                      onTap: () => rateOrder(order.id, starIndex + 1.0),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Icon(
-                          starIndex < order.rating ? Icons.star : Icons.star_border,
-                          color: Colors.amber,
-                          size: 32,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ],
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Profile")),
+      body: Center(
+        child: Column(children: [
+          const SizedBox(height: 30),
+          GestureDetector(
+            onTap: () {
+              setState(() => eggTaps++);
+              if (eggTaps == 5) {
+                _showEasterEgg();
+                eggTaps = 0;
+              }
+            },
+            child: const CircleAvatar(
+              radius: 60,
+              backgroundColor: Color(0xFF6200EA),
+              child: Icon(Icons.person, size: 60, color: Colors.white),
             ),
           ),
-        );
-      },
+          const SizedBox(height: 10),
+          Text(name,
+              style:
+                  const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text("Reg: $id", style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 30),
+          const Divider(),
+          ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text("Notifications"),
+              onTap: () {}),
+          ListTile(
+              leading: const Icon(Icons.location_on),
+              title: const Text("Saved Addresses"),
+              onTap: () {}),
+          ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text("App Settings"),
+              onTap: () {}),
+          const Divider(),
+          ListTile(
+              leading: const Icon(Icons.headset_mic),
+              title: const Text("Help & Support"),
+              onTap: _showSupport),
+          ListTile(
+              leading: const Icon(Icons.info),
+              title: const Text("About Us"),
+              onTap: _showAbout),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text("Logout"),
+            onTap: _logout,
+          ),
+        ]),
+      ),
     );
   }
 }
