@@ -1296,67 +1296,78 @@ class _WalletPageState extends State<WalletPage> {
       );
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Wallet")),
-      body: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(25),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFF6200EA), Color(0xFF651FFF)]),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text("Balance",
-                      style: TextStyle(color: Colors.white, fontSize: 18)),
-                  Text("₹${wallet.toInt()}",
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold)),
-                ]),
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: const Text("Wallet")),
+    body: Column(
+      children: [
+        Container(
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                colors: [Color(0xFF6200EA), Color(0xFF651FFF)]),
+            borderRadius: BorderRadius.circular(20),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                    onPressed: _showDepositDialog,
-                    child: const Text("ADD MONEY"))),
-          Expanded(
-            child: ListView.builder(
-              itemCount: transactions.length,
-              itemBuilder: (c, i) {
-                final t = transactions[i];
-                return ListTile(
-                  onTap: () => _showTxnDetails(t),
-                  leading: Icon(
-                      t.isCredit
-                          ? Icons.arrow_downward
-                          : Icons.arrow_upward,
-                      color: t.isCredit ? Colors.green : Colors.red),
-                  title: Text(t.title),
-                  subtitle: Text(DateFormat('dd MMM').format(t.date)),
-                  trailing: Text(
-                    "${t.isCredit ? '+' : '-'} ₹${t.amount.toInt()}",
-                    style: TextStyle(
-                        color: t.isCredit ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.bold),
-                  ),
-                );
-              },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Balance",
+                style: TextStyle(color: Colors.white, fontSize: 18),
+              ),
+              Text(
+                "₹${wallet.toInt()}",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _showDepositDialog,
+              child: const Text("ADD MONEY"),
             ),
-          )
-        ],
-      ),
-    );
-  }
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: transactions.length,
+            itemBuilder: (c, i) {
+              final t = transactions[i];
+              return ListTile(
+                onTap: () => _showTxnDetails(t),
+                leading: Icon(
+                  t.isCredit
+                      ? Icons.arrow_downward
+                      : Icons.arrow_upward,
+                  color: t.isCredit ? Colors.green : Colors.red,
+                ),
+                title: Text(t.title),
+                subtitle: Text(DateFormat('dd MMM').format(t.date)),
+                trailing: Text(
+                  "${t.isCredit ? '+' : '-'} ₹${t.amount.toInt()}",
+                  style: TextStyle(
+                    color: t.isCredit ? Colors.green : Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }
+
 
 // =============================================================
 // DEPOSIT SHEET
