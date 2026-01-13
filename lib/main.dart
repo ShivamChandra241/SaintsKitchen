@@ -98,7 +98,7 @@ class WalletTransaction {
   final bool isCredit;
   final String method;
   final DateTime date;
-  final String? meta; // UPI ID / Card hint / Order ID
+  final String? meta;
 
   WalletTransaction(
     this.id,
@@ -340,7 +340,6 @@ class SaintsKitchenApp extends StatelessWidget {
   }
 }
 
-// Next parts will continue from here (Splash, Login, MainShell, etc.)
 // =============================================================
 // SPLASH SCREEN
 // =============================================================
@@ -567,7 +566,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// Next part continues with MainScreen + Navigation shell
 // =============================================================
 // MAIN SHELL
 // =============================================================
@@ -583,7 +581,6 @@ class _MainScreenState extends State<MainScreen> {
   List<CartItem> cart = [];
 
   void addToCart(FoodItem item, FoodVariant? variant, int qty) {
-    // Merge logic: same item + same variant -> increase quantity
     final existing = cart.indexWhere((c) =>
         c.item.id == item.id &&
         ((c.selectedVariant == null && variant == null) ||
@@ -875,7 +872,6 @@ class _MenuPageState extends State<MenuPage> {
   }
 }
 
-// Next part continues with Orders (Cart + Tracking + Rating + Checkout)
 // =============================================================
 // ORDERS PAGE
 // =============================================================
@@ -946,7 +942,6 @@ class _OrdersPageState extends State<OrdersPage> {
       return;
     }
 
-    // CONFIRMATION
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -973,10 +968,8 @@ class _OrdersPageState extends State<OrdersPage> {
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) Navigator.pop(context);
 
-    // DEDUCT WALLET
     await prefs.setDouble('wallet', wallet - finalTotal);
 
-    // LOG TRANSACTION
     final tList = prefs.getString('transactions');
     List<WalletTransaction> transactions = [];
     if (tList != null) {
@@ -999,7 +992,6 @@ class _OrdersPageState extends State<OrdersPage> {
     await prefs.setString(
         'transactions', jsonEncode(transactions.map((e) => e.toJson()).toList()));
 
-    // SAVE ORDER
     final newOrder = Order(orderId, List.from(widget.currentCart), subtotal,
         discount, finalTotal, DateTime.now());
     final hList = prefs.getString('order_history');
@@ -1066,7 +1058,6 @@ class _OrdersPageState extends State<OrdersPage> {
         ),
         body: TabBarView(
           children: [
-            // CART TAB
             widget.currentCart.isEmpty
                 ? const Center(child: Text("Cart Empty"))
                 : Column(children: [
@@ -1131,8 +1122,6 @@ class _OrdersPageState extends State<OrdersPage> {
                       ]),
                     )
                   ]),
-
-            // TRACKING TAB
             ListView.builder(
               padding: const EdgeInsets.all(15),
               itemCount: orderHistory.length,
@@ -1216,7 +1205,6 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 }
 
-// Next part continues with Wallet + Deposit + Transaction Details
 // =============================================================
 // WALLET PAGE
 // =============================================================
@@ -1296,78 +1284,78 @@ class _WalletPageState extends State<WalletPage> {
       );
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(title: const Text("Wallet")),
-    body: Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(25),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [Color(0xFF6200EA), Color(0xFF651FFF)]),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Balance",
-                style: TextStyle(color: Colors.white, fontSize: 18),
-              ),
-              Text(
-                "₹${wallet.toInt()}",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _showDepositDialog,
-              child: const Text("ADD MONEY"),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Wallet")),
+      body: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(25),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [Color(0xFF6200EA), Color(0xFF651FFF)]),
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: transactions.length,
-            itemBuilder: (c, i) {
-              final t = transactions[i];
-              return ListTile(
-                onTap: () => _showTxnDetails(t),
-                leading: Icon(
-                  t.isCredit
-                      ? Icons.arrow_downward
-                      : Icons.arrow_upward,
-                  color: t.isCredit ? Colors.green : Colors.red,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Balance",
+                  style: TextStyle(color: Colors.white, fontSize: 18),
                 ),
-                title: Text(t.title),
-                subtitle: Text(DateFormat('dd MMM').format(t.date)),
-                trailing: Text(
-                  "${t.isCredit ? '+' : '-'} ₹${t.amount.toInt()}",
-                  style: TextStyle(
-                    color: t.isCredit ? Colors.green : Colors.red,
+                Text(
+                  "₹${wallet.toInt()}",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _showDepositDialog,
+                child: const Text("ADD MONEY"),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: transactions.length,
+              itemBuilder: (c, i) {
+                final t = transactions[i];
+                return ListTile(
+                  onTap: () => _showTxnDetails(t),
+                  leading: Icon(
+                    t.isCredit
+                        ? Icons.arrow_downward
+                        : Icons.arrow_upward,
+                    color: t.isCredit ? Colors.green : Colors.red,
+                  ),
+                  title: Text(t.title),
+                  subtitle: Text(DateFormat('dd MMM').format(t.date)),
+                  trailing: Text(
+                    "${t.isCredit ? '+' : '-'} ₹${t.amount.toInt()}",
+                    style: TextStyle(
+                      color: t.isCredit ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
-
 
 // =============================================================
 // DEPOSIT SHEET
@@ -1380,7 +1368,7 @@ class DepositSheet extends StatefulWidget {
 }
 
 class _DepositSheetState extends State<DepositSheet> {
-  int _method = 0; // 0=Card, 1=UPI
+  int _method = 0;
   final _amountCtrl = TextEditingController();
   final _cardCtrl = TextEditingController();
   final _cvvCtrl = TextEditingController();
@@ -1523,7 +1511,6 @@ class _DepositSheetState extends State<DepositSheet> {
   }
 }
 
-// Next part continues with Profile Page (Easter Egg, About, Logout)
 // =============================================================
 // PROFILE PAGE
 // =============================================================
