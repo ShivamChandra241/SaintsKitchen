@@ -14,7 +14,6 @@ class FoodVariant {
   final String name; 
   final double price;
   FoodVariant(this.name, this.price);
-  
   Map<String, dynamic> toJson() => {'name': name, 'price': price};
   factory FoodVariant.fromJson(Map<String, dynamic> json) => FoodVariant(json['name'], json['price']);
 }
@@ -81,72 +80,47 @@ class Transaction {
 class Order {
   final String id;
   final List<CartItem> items;
-  final double total; // This is the PAID amount (after discount)
-  final double originalTotal;
+  final double total;
   final double discount;
   final DateTime timestamp;
   int? rating;
 
-  Order(this.id, this.items, this.total, this.originalTotal, this.discount, this.timestamp, {this.rating});
+  Order(this.id, this.items, this.total, this.discount, this.timestamp, {this.rating});
 
-  Map<String, dynamic> toJson() => {'id': id, 'items': items.map((i) => i.toJson()).toList(), 'total': total, 'originalTotal': originalTotal, 'discount': discount, 'timestamp': timestamp.toIso8601String(), 'rating': rating};
-  factory Order.fromJson(Map<String, dynamic> json) => Order(json['id'], (json['items'] as List).map((i) => CartItem.fromJson(i)).toList(), json['total'], json['originalTotal'] ?? json['total'], json['discount'] ?? 0.0, DateTime.parse(json['timestamp']), rating: json['rating']);
+  Map<String, dynamic> toJson() => {'id': id, 'items': items.map((i) => i.toJson()).toList(), 'total': total, 'discount': discount, 'timestamp': timestamp.toIso8601String(), 'rating': rating};
+  factory Order.fromJson(Map<String, dynamic> json) => Order(json['id'], (json['items'] as List).map((i) => CartItem.fromJson(i)).toList(), json['total'], json['discount'] ?? 0.0, DateTime.parse(json['timestamp']), rating: json['rating']);
 }
 
-// --- MOCK MENU (40+ ITEMS) ---
+// --- MOCK MENU (Detailed Descriptions) ---
 final List<FoodItem> fullMenu = [
   // THALIS
-  FoodItem("101", "Chole Bhature Thali", "Thali", 120, "🥘", true, "2 Fluffy Bhature, Spicy Chole, Pickle, Salad & Lassi.", variants: [FoodVariant("Half", 80), FoodVariant("Full", 120)]),
-  FoodItem("102", "Rajma Chawal Thali", "Thali", 110, "🍛", true, "Home-style Rajma, Basmati Rice, Raita & Papad.", variants: [FoodVariant("Mini", 70), FoodVariant("Full", 110)]),
-  FoodItem("103", "Chicken Curry Thali", "Thali", 160, "🍗", false, "Spicy Chicken Curry, 2 Rotis, Jeera Rice, Salad.", variants: [FoodVariant("Standard", 160), FoodVariant("Deluxe", 200)]),
-  FoodItem("104", "South Indian Thali", "Thali", 100, "🥥", true, "Idli, Vada, Mini Dosa, Sambar, Coconut & Tomato Chutney."),
-  FoodItem("105", "Veg Deluxe Thali", "Thali", 150, "🥗", true, "Paneer Butter Masala, Dal Makhani, 2 Naan, Rice & Sweet."),
-  FoodItem("106", "Fish Curry Thali", "Thali", 180, "🐟", false, "Coastal style Fish Curry, Steamed Rice, Sol Kadhi."),
-  FoodItem("107", "Egg Curry Thali", "Thali", 130, "🥚", false, "2 Egg Curry, 3 Chapatis, Rice, Salad."),
-  FoodItem("108", "Dal Baati Churma", "Thali", 140, "🥣", true, "Traditional Rajasthani Dal Baati with sweet Churma."),
+  FoodItem("101", "Chole Bhature Thali", "Thali", 120, "🥘", true, "Experience the taste of North India with 2 huge, fluffy Bhature served with spicy, tangy Chole masala. Includes pickle, onions, and a glass of refreshing chaas.", variants: [FoodVariant("Half", 80), FoodVariant("Full", 120)]),
+  FoodItem("102", "Rajma Chawal Thali", "Thali", 110, "🍛", true, "Comfort food at its best. Homestyle kidney beans cooked in tomato gravy, served over steaming hot Basmati rice. Comes with roasted papad and mint chutney.", variants: [FoodVariant("Mini", 70), FoodVariant("Full", 110)]),
+  FoodItem("103", "Chicken Curry Thali", "Thali", 160, "🍗", false, "A hearty meal featuring tender chicken simmered in a rich aromatic gravy. Served with 2 butter rotis, jeera rice, fresh garden salad, and a sweet gulab jamun.", variants: [FoodVariant("Standard", 160), FoodVariant("Deluxe", 200)]),
+  FoodItem("104", "South Indian Thali", "Thali", 100, "🥥", true, "A complete platter: 2 soft Idlis, 1 crispy Medu Vada, Mini Dosa, piping hot Sambar, Coconut Chutney, and Tomato Chutney."),
+  FoodItem("105", "Veg Deluxe Thali", "Thali", 150, "🥗", true, "The ultimate veg feast. Paneer Butter Masala, Dal Makhani, 2 Butter Naans, Pulao, Raita, Salad, and a dessert of the day."),
 
   // MEALS
-  FoodItem("201", "Classic Burger", "Meals", 60, "🍔", false, "Grilled chicken patty, lettuce, tomato & saints sauce."),
-  FoodItem("202", "Veggie Burger", "Meals", 50, "🥬", true, "Crispy potato & peas patty with mayo."),
-  FoodItem("203", "Cheese Pizza", "Meals", 99, "🍕", true, "Mozzarella cheese burst with basil.", variants: [FoodVariant("Regular", 99), FoodVariant("Large", 199)]),
-  FoodItem("204", "Chicken Pizza", "Meals", 149, "🍖", false, "BBQ Chicken chunks, onions and paprika.", variants: [FoodVariant("Regular", 149), FoodVariant("Large", 249)]),
-  FoodItem("205", "Veg Biryani", "Meals", 130, "🍚", true, "Aromatic basmati rice cooked with fresh garden veggies."),
-  FoodItem("206", "Chicken Biryani", "Meals", 180, "🍗", false, "Hyderabadi style dum biryani with raita."),
-  FoodItem("207", "Chicken Wrap", "Meals", 90, "🌯", false, "Spicy chicken strips in a soft tortilla wrap."),
-  FoodItem("208", "Paneer Tikka Roll", "Meals", 85, "🥙", true, "Char-grilled paneer cubes wrapped in roomali roti."),
-  FoodItem("209", "Pasta Alfredo", "Meals", 110, "🍝", true, "White sauce penne pasta with corn and olives."),
-  FoodItem("210", "Pasta Arrabbiata", "Meals", 110, "🍅", true, "Red sauce spicy pasta with basil."),
-  FoodItem("211", "Fried Rice", "Meals", 90, "🥡", true, "Indo-Chinese style veg fried rice."),
-  FoodItem("212", "Hakka Noodles", "Meals", 90, "🥢", true, "Stir-fried noodles with crunchy vegetables."),
+  FoodItem("201", "Classic Burger", "Meals", 60, "🍔", false, "Flame-grilled chicken patty topped with melted cheddar, fresh lettuce, tomatoes, and our secret Saints sauce on a toasted sesame bun."),
+  FoodItem("202", "Veggie Burger", "Meals", 50, "🥬", true, "Crispy mixed vegetable patty with potatoes and peas, topped with creamy mayonnaise and crunchy onions."),
+  FoodItem("203", "Cheese Pizza", "Meals", 99, "🍕", true, "Classic Margherita with a rich tomato base and an overload of mozzarella cheese, finished with a sprinkle of oregano.", variants: [FoodVariant("Regular", 99), FoodVariant("Large", 199)]),
+  FoodItem("204", "Chicken Pizza", "Meals", 149, "🍖", false, "Loaded with BBQ chicken chunks, onions, paprika, and extra cheese on a thin crust base.", variants: [FoodVariant("Regular", 149), FoodVariant("Large", 249)]),
+  FoodItem("205", "Veg Biryani", "Meals", 130, "🍚", true, "Long grain Basmati rice slow-cooked with fresh carrots, beans, cauliflower, and authentic whole spices. Served with Raita."),
+  FoodItem("207", "Chicken Wrap", "Meals", 90, "🌯", false, "Spicy grilled chicken strips wrapped in a soft tortilla with crunchy peppers and spicy mayo."),
+  FoodItem("209", "Pasta Alfredo", "Meals", 110, "🍝", true, "Penne pasta tossed in a rich, creamy white cheese sauce with sweet corn, broccoli, and black olives."),
 
   // SNACKS
-  FoodItem("301", "Peri Peri Fries", "Snacks", 60, "🍟", true, "Crispy fries tossed in spicy peri peri mix.", variants: [FoodVariant("Small", 40), FoodVariant("Large", 60)]),
-  FoodItem("302", "Veg Sandwich", "Snacks", 45, "🥪", true, "Grilled sandwich with cucumber, tomato & chutney."),
-  FoodItem("303", "Chicken Nuggets", "Snacks", 90, "🍖", false, "6 pieces of golden fried chicken nuggets with dip."),
-  FoodItem("304", "Samosa (2pcs)", "Snacks", 30, "🥟", true, "Hot potato stuffed samosas with mint chutney."),
-  FoodItem("305", "Garlic Bread", "Snacks", 70, "🥖", true, "Toasted baguette with garlic butter and herbs."),
-  FoodItem("306", "Vada Pav", "Snacks", 25, "🥔", true, "Mumbai style spicy potato slider."),
-  FoodItem("307", "Chicken Popcorn", "Snacks", 100, "🍿", false, "Bite sized crunchy fried chicken."),
-  FoodItem("308", "Paneer 65", "Snacks", 110, "🌶️", true, "Spicy deep fried paneer cubes."),
-  FoodItem("309", "Nachos with Salsa", "Snacks", 80, "🌮", true, "Crispy tortilla chips with tangy salsa dip."),
-  FoodItem("310", "Spring Rolls", "Snacks", 70, "🌯", true, "Crispy fried rolls stuffed with veggies."),
+  FoodItem("301", "Peri Peri Fries", "Snacks", 60, "🍟", true, "Golden crispy french fries generously dusted with spicy Peri-Peri seasoning.", variants: [FoodVariant("Small", 40), FoodVariant("Large", 60)]),
+  FoodItem("302", "Veg Sandwich", "Snacks", 45, "🥪", true, "Triple-layer grilled sandwich filled with fresh cucumber, tomato, potato slices, and spicy green chutney."),
+  FoodItem("303", "Chicken Nuggets", "Snacks", 90, "🍖", false, "6 pieces of golden, crunchy fried chicken nuggets. Perfect for a quick bite. Served with ketchup."),
+  FoodItem("304", "Samosa (2pcs)", "Snacks", 30, "🥟", true, "Traditional triangular pastry filled with spiced mashed potatoes and peas. Served hot with mint chutney."),
+  FoodItem("305", "Garlic Bread", "Snacks", 70, "🥖", true, "Oven-baked baguette slices topped with garlic butter and mixed herbs."),
 
   // DRINKS
-  FoodItem("401", "Coca Cola", "Drinks", 25, "🥤", true, "Chilled fizzy cola.", variants: [FoodVariant("Can", 25), FoodVariant("Bottle", 40)]),
-  FoodItem("402", "Cold Coffee", "Drinks", 60, "🧋", true, "Creamy blended coffee with ice cream."),
-  FoodItem("403", "Mango Lassi", "Drinks", 50, "🥭", true, "Thick yogurt drink with fresh mango pulp."),
-  FoodItem("404", "Masala Chai", "Drinks", 20, "☕", true, "Hot tea infused with cardamom and ginger."),
-  FoodItem("405", "Mint Mojito", "Drinks", 70, "🍹", true, "Refreshing lime and mint virgin mojito."),
-  FoodItem("406", "Orange Juice", "Drinks", 60, "🍊", true, "Freshly squeezed orange juice."),
-  FoodItem("407", "Chocolate Milkshake", "Drinks", 80, "🍫", true, "Thick chocolate shake with brownie crumbs."),
-  FoodItem("408", "Lemon Iced Tea", "Drinks", 50, "🍋", true, "Chilled tea with a hint of lemon."),
-  FoodItem("409", "Water Bottle", "Drinks", 20, "💧", true, "1 Litre mineral water bottle."),
-
-  // DESSERTS
-  FoodItem("501", "Choco Lava Cake", "Dessert", 80, "🍰", true, "Warm chocolate cake with a gooesy center."),
-  FoodItem("502", "Gulab Jamun (2pcs)", "Dessert", 40, "🍯", true, "Fried dough balls soaked in sugar syrup."),
-  FoodItem("503", "Ice Cream Scoop", "Dessert", 50, "🍦", true, "Vanilla, Strawberry or Chocolate scoop."),
-  FoodItem("504", "Brownie with Ice Cream", "Dessert", 100, "🍮", true, "Walnut brownie topped with vanilla ice cream."),
+  FoodItem("401", "Coca Cola", "Drinks", 25, "🥤", true, "Chilled fizzy cola to refresh your thirst.", variants: [FoodVariant("Can", 25), FoodVariant("Bottle", 40)]),
+  FoodItem("402", "Cold Coffee", "Drinks", 60, "🧋", true, "Thick and creamy blended coffee topped with a scoop of vanilla ice cream and chocolate syrup."),
+  FoodItem("403", "Mango Lassi", "Drinks", 50, "🥭", true, "Thick, sweet yogurt drink blended with fresh Alphonso mango pulp."),
+  FoodItem("405", "Mint Mojito", "Drinks", 70, "🍹", true, "Non-alcoholic refreshing cooler made with fresh mint leaves, lime, sugar, and soda."),
 ];
 
 void main() {
@@ -174,7 +148,7 @@ class SaintsKitchenApp extends StatelessWidget {
   }
 }
 
-// --- SCREEN 1: SPLASH (Restored Version 2.0 Style) ---
+// --- SCREEN 1: SPLASH (Restored V2.0 Style + App Name) ---
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -185,11 +159,10 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLogin();
+    Future.delayed(const Duration(seconds: 3), _checkLogin);
   }
 
   Future<void> _checkLogin() async {
-    await Future.delayed(const Duration(seconds: 2));
     final prefs = await SharedPreferences.getInstance();
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
     if (mounted) {
@@ -197,7 +170,7 @@ class _SplashScreenState extends State<SplashScreen> {
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => isLoggedIn ? const MainScreen() : const LoginScreen(),
           transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
-          transitionDuration: const Duration(seconds: 1),
+          transitionDuration: const Duration(milliseconds: 800),
         ),
       );
     }
@@ -207,7 +180,18 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF6200EA),
-      body: Center(child: Icon(Icons.restaurant_menu, color: Colors.white, size: 80)),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.restaurant_menu, color: Colors.white, size: 80),
+            const SizedBox(height: 20),
+            Text("SAINTS KITCHEN", style: GoogleFonts.bebasNeue(fontSize: 40, color: Colors.white, letterSpacing: 3)),
+            const SizedBox(height: 5),
+            Text("Saints Row III School", style: GoogleFonts.poppins(color: Colors.white70, fontSize: 14)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -251,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.fastfood_rounded, size: 60, color: Color(0xFF6200EA)),
                 const SizedBox(height: 20),
-                Text("Welcome Back", style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold)),
+                Text("Student Login", style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: "Name", prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
                 const SizedBox(height: 15),
@@ -314,7 +298,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// --- SCREEN 4: MENU (Expanded) ---
+// --- SCREEN 4: MENU (Extended) ---
 class MenuPage extends StatefulWidget {
   final Function(FoodItem, FoodVariant?, int) onAddToCart;
   const MenuPage({super.key, required this.onAddToCart});
@@ -325,7 +309,7 @@ class MenuPage extends StatefulWidget {
 class _MenuPageState extends State<MenuPage> {
   String selectedCat = "Thali";
   String searchQuery = "";
-  final categories = ["All", "Thali", "Meals", "Snacks", "Drinks", "Dessert"];
+  final categories = ["All", "Thali", "Meals", "Snacks", "Drinks"];
 
   List<FoodItem> get filteredItems {
     return fullMenu.where((item) {
@@ -343,19 +327,22 @@ class _MenuPageState extends State<MenuPage> {
       context: context, isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(builder: (context, setSheetState) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: MediaQuery.of(context).size.height * 0.75,
         decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+            const SizedBox(height: 20),
             Center(child: Text(item.imageUrl, style: const TextStyle(fontSize: 80))),
             const SizedBox(height: 20),
             Text(item.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            Text(item.description, style: TextStyle(color: Colors.grey[600])),
+            const SizedBox(height: 10),
+            Text(item.description, style: TextStyle(color: Colors.grey[600], fontSize: 15, height: 1.5)),
             const SizedBox(height: 20),
             if (item.variants.isNotEmpty) ...[
-              const Text("Select Option:", style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text("Select Size/Variant:", style: TextStyle(fontWeight: FontWeight.bold)),
               Wrap(spacing: 10, children: item.variants.map((v) => ChoiceChip(
                 label: Text("${v.name} - ₹${v.price}"),
                 selected: selectedVar == v,
@@ -366,17 +353,20 @@ class _MenuPageState extends State<MenuPage> {
             ],
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               const Text("Quantity", style: TextStyle(fontWeight: FontWeight.bold)),
-              Row(children: [
-                IconButton(onPressed: () => qty > 1 ? setSheetState(() => qty--) : null, icon: const Icon(Icons.remove)),
-                Text("$qty", style: const TextStyle(fontWeight: FontWeight.bold)),
-                IconButton(onPressed: () => setSheetState(() => qty++), icon: const Icon(Icons.add)),
-              ])
+              Container(
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [
+                  IconButton(onPressed: () => qty > 1 ? setSheetState(() => qty--) : null, icon: const Icon(Icons.remove)),
+                  Text("$qty", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  IconButton(onPressed: () => setSheetState(() => qty++), icon: const Icon(Icons.add)),
+                ])
+              )
             ]),
             const Spacer(),
             SizedBox(width: double.infinity, height: 50, child: ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6200EA), foregroundColor: Colors.white),
               onPressed: () { widget.onAddToCart(item, selectedVar, qty); Navigator.pop(context); },
-              child: Text("ADD ₹${((selectedVar?.price ?? item.basePrice) * qty).toInt()}"),
+              child: Text("ADD TO CART - ₹${((selectedVar?.price ?? item.basePrice) * qty).toInt()}"),
             ))
           ],
         ),
@@ -389,12 +379,12 @@ class _MenuPageState extends State<MenuPage> {
     return SafeArea(
       child: Column(
         children: [
-          Padding(padding: const EdgeInsets.all(20), child: TextField(onChanged: (v) => setState(() => searchQuery = v), decoration: InputDecoration(hintText: "Search 40+ items...", prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15))))),
+          Padding(padding: const EdgeInsets.all(20), child: TextField(onChanged: (v) => setState(() => searchQuery = v), decoration: InputDecoration(hintText: "Search dishes...", prefixIcon: const Icon(Icons.search), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15))))),
           SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20), child: Row(children: categories.map((cat) => Padding(padding: const EdgeInsets.only(right: 10), child: ChoiceChip(label: Text(cat), selected: selectedCat == cat, onSelected: (b) => setState(() => selectedCat = cat), selectedColor: const Color(0xFF6200EA), labelStyle: TextStyle(color: selectedCat == cat ? Colors.white : Colors.black)))).toList())),
           const SizedBox(height: 10),
           Expanded(child: GridView.builder(
             padding: const EdgeInsets.all(20),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.8, crossAxisSpacing: 15, mainAxisSpacing: 15),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.75, crossAxisSpacing: 15, mainAxisSpacing: 15),
             itemCount: filteredItems.length,
             itemBuilder: (context, index) {
               final item = filteredItems[index];
@@ -403,12 +393,10 @@ class _MenuPageState extends State<MenuPage> {
                 child: Container(
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)]),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text(item.imageUrl, style: const TextStyle(fontSize: 40)),
+                    Text(item.imageUrl, style: const TextStyle(fontSize: 45)),
                     const SizedBox(height: 10),
-                    Text(item.name, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: Text(item.name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold))),
                     Text(item.variants.isNotEmpty ? "From ₹${item.variants[0].price}" : "₹${item.basePrice}", style: const TextStyle(color: Colors.grey)),
-                    const SizedBox(height: 5),
-                    Text(item.category, style: const TextStyle(fontSize: 10, color: Colors.grey))
                   ]),
                 ),
               );
@@ -420,7 +408,7 @@ class _MenuPageState extends State<MenuPage> {
   }
 }
 
-// --- SCREEN 5: CART & ORDERS (Fixed Tracking & Deduction) ---
+// --- SCREEN 5: CART & ORDERS (Fixed Animation & Logic) ---
 class OrdersPage extends StatefulWidget {
   final List<CartItem> currentCart;
   final VoidCallback onClearCart;
@@ -455,28 +443,71 @@ class _OrdersPageState extends State<OrdersPage> {
 
   Future<void> _placeOrder() async {
     if (widget.currentCart.isEmpty) return;
+    
+    // 1. Calculate Costs
     final prefs = await SharedPreferences.getInstance();
     final double wallet = prefs.getDouble('wallet') ?? 0.0;
     final double originalTotal = widget.currentCart.fold(0, (sum, i) => sum + i.totalPrice);
     final double finalTotal = max(0, originalTotal - discount);
 
+    // 2. Check Balance
     if (wallet < finalTotal) {
+      // Check for Auto-Pay
+      final bool autoPay = prefs.getBool('autopay_enabled') ?? false;
+      final double threshold = prefs.getDouble('autopay_threshold') ?? 100.0;
+      final double topUpAmt = prefs.getDouble('autopay_amount') ?? 500.0;
+      
+      if (autoPay && wallet < threshold) {
+         // Auto-Topup Triggered
+         final double newWallet = wallet + topUpAmt;
+         await prefs.setDouble('wallet', newWallet);
+         _logTransaction(topUpAmt, true, "Auto-Topup");
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Auto-Recharged ₹$topUpAmt!")));
+         // Recursive call to try payment again with new balance
+         _placeOrder(); 
+         return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Insufficient Balance!"), backgroundColor: Colors.red));
       return;
     }
 
-    // Deduct Wallet (FIXED)
-    await prefs.setDouble('wallet', wallet - finalTotal);
-    
-    // Log Transaction
-    final tList = prefs.getString('transactions');
-    List<Transaction> transactions = [];
-    if (tList != null) transactions = (jsonDecode(tList) as List).map((i) => Transaction.fromJson(i)).toList();
-    transactions.insert(0, Transaction("ORD-${Random().nextInt(9999)}", "Food Order", finalTotal, false, "Wallet", DateTime.now()));
-    await prefs.setString('transactions', jsonEncode(transactions.map((e) => e.toJson()).toList()));
+    // 3. SUCCESS ANIMATION (Dialog)
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TweenAnimationBuilder(
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.elasticOut,
+                builder: (context, double value, child) {
+                  return Transform.scale(scale: value, child: const Icon(Icons.check_circle, color: Colors.green, size: 80));
+                },
+              ),
+              const SizedBox(height: 20),
+              const Text("Order Confirmed!", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+        ),
+      ),
+    );
 
-    // Save Order (FIXED: Saves Discounted Price)
-    final newOrder = Order("SK-${Random().nextInt(9999)}", List.from(widget.currentCart), finalTotal, originalTotal, discount, DateTime.now());
+    await Future.delayed(const Duration(seconds: 2)); // Wait for animation
+    if(mounted) Navigator.pop(context); // Close dialog
+
+    // 4. Process Payment (DEDUCT NOW)
+    await prefs.setDouble('wallet', wallet - finalTotal);
+    _logTransaction(finalTotal, false, "Food Order");
+
+    // 5. Save Order
+    final newOrder = Order("SK-${Random().nextInt(9999)}", List.from(widget.currentCart), finalTotal, discount, DateTime.now());
     final hList = prefs.getString('order_history');
     List<Order> history = [];
     if (hList != null) history = (jsonDecode(hList) as List).map((i) => Order.fromJson(i)).toList();
@@ -486,20 +517,34 @@ class _OrdersPageState extends State<OrdersPage> {
     widget.onClearCart();
     setState(() { discount = 0.0; codeApplied = false; _couponCtrl.clear(); });
     _loadHistory();
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Order Placed Successfully!")));
   }
 
-  // Tracking Widget
-  Widget _buildTimelineStep(String title, bool isActive, bool isLast) {
+  Future<void> _logTransaction(double amount, bool isCredit, String title) async {
+    final prefs = await SharedPreferences.getInstance();
+    final tList = prefs.getString('transactions');
+    List<Transaction> transactions = [];
+    if (tList != null) transactions = (jsonDecode(tList) as List).map((i) => Transaction.fromJson(i)).toList();
+    transactions.insert(0, Transaction("TX-${Random().nextInt(9999)}", title, amount, isCredit, "Wallet", DateTime.now()));
+    await prefs.setString('transactions', jsonEncode(transactions.map((e) => e.toJson()).toList()));
+  }
+
+  Widget _buildStep(String title, String subtitle, bool isActive, bool isCompleted, IconData icon) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Column(children: [
-          Icon(isActive ? Icons.check_circle : Icons.radio_button_unchecked, color: isActive ? Colors.green : Colors.grey),
-          if (!isLast) Container(width: 2, height: 30, color: isActive ? Colors.green : Colors.grey[300]),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: isCompleted ? Colors.green : (isActive ? Colors.orange : Colors.grey[200]), shape: BoxShape.circle),
+            child: Icon(icon, color: Colors.white, size: 16),
+          ),
+          Container(width: 2, height: 40, color: Colors.grey[300]),
         ]),
-        const SizedBox(width: 10),
-        Text(title, style: TextStyle(fontWeight: isActive ? FontWeight.bold : FontWeight.normal, color: isActive ? Colors.black : Colors.grey)),
+        const SizedBox(width: 15),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isActive || isCompleted ? Colors.black : Colors.grey)),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ])
       ],
     );
   }
@@ -523,40 +568,35 @@ class _OrdersPageState extends State<OrdersPage> {
                 SizedBox(width: double.infinity, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6200EA), foregroundColor: Colors.white), onPressed: _placeOrder, child: const Text("PAY & ORDER")))
               ]))
             ]),
-            // TRACKING TAB (Fixed Logic)
+            // TRACKING TAB (New UI)
             ListView.builder(
               padding: const EdgeInsets.all(15),
               itemCount: orderHistory.length,
               itemBuilder: (context, index) {
                 final o = orderHistory[index];
-                // Time Logic
                 final mins = DateTime.now().difference(o.timestamp).inMinutes;
-                bool placed = true;
-                bool cooking = mins >= 1; // Cooking after 1 min
-                bool ready = mins >= 2;   // Ready after 2 mins
+                bool cooking = mins >= 1;
+                bool ready = mins >= 2;
 
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 15),
+                  elevation: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: ExpansionTile(
-                    title: Text("Order #${o.id}"),
-                    subtitle: Text(DateFormat('hh:mm a').format(o.timestamp)),
+                    title: Text("Order #${o.id}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(DateFormat('dd MMM, hh:mm a').format(o.timestamp)),
                     children: [
-                      Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        _buildTimelineStep("Order Placed", placed, false),
-                        _buildTimelineStep("Cooking Meal", cooking, false),
-                        _buildTimelineStep("Ready to Pickup", ready, true),
-                        const Divider(),
+                      Padding(padding: const EdgeInsets.all(20), child: Column(children: [
+                        _buildStep("Order Placed", "Your order is received", true, cooking, Icons.receipt),
+                        _buildStep("Cooking", "Chef is preparing your meal", cooking, ready, Icons.soup_kitchen),
+                        _buildStep("Ready to Pickup", "Scan QR at counter", ready, ready, Icons.check_circle),
+                        const SizedBox(height: 10),
                         if (ready) ...[
-                          Center(child: QrImageView(data: o.id, size: 100)),
-                          const SizedBox(height: 5),
-                          const Center(child: Text("Scan at Counter", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))),
-                          const SizedBox(height: 10),
-                          const Text("Rate Food:"),
-                          Row(children: List.generate(5, (star) => IconButton(icon: Icon(Icons.star, color: (o.rating ?? 0) > star ? Colors.orange : Colors.grey[300]), onPressed: () { setState(() => o.rating = star + 1); }))),
-                        ],
-                        if (!ready) const Center(child: Text("Wait for status update...", style: TextStyle(fontStyle: FontStyle.italic))),
+                          QrImageView(data: o.id, size: 120),
+                          const Text("SCAN THIS", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                        ] else const LinearProgressIndicator(),
                         const Divider(),
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("Paid Total:"), Text("₹${o.total}", style: const TextStyle(fontWeight: FontWeight.bold))]),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("Paid Amount:"), Text("₹${o.total}", style: const TextStyle(fontWeight: FontWeight.bold))]),
                       ]))
                     ],
                   ),
@@ -570,7 +610,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 }
 
-// --- SCREEN 6: WALLET (Fixed Card Input & AutoPay) ---
+// --- SCREEN 6: WALLET (Smart Auto-Pay & Config) ---
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
   @override
@@ -579,8 +619,8 @@ class WalletPage extends StatefulWidget {
 
 class _WalletPageState extends State<WalletPage> {
   double wallet = 0.0;
-  bool autoPay = false;
   List<Transaction> transactions = [];
+  bool autoPayEnabled = false;
 
   @override
   void initState() { super.initState(); _loadData(); }
@@ -589,16 +629,39 @@ class _WalletPageState extends State<WalletPage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       wallet = prefs.getDouble('wallet') ?? 0.0;
-      autoPay = prefs.getBool('autopay') ?? false;
+      autoPayEnabled = prefs.getBool('autopay_enabled') ?? false;
       final tList = prefs.getString('transactions');
       if (tList != null) transactions = (jsonDecode(tList) as List).map((i) => Transaction.fromJson(i)).toList();
     });
   }
 
-  void _toggleAutoPay(bool val) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('autopay', val);
-    setState(() => autoPay = val);
+  void _configureAutoPay() {
+    final _threshCtrl = TextEditingController();
+    final _amtCtrl = TextEditingController();
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text("Configure Auto-Pay"),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text("Automatically top-up wallet when balance is low."),
+        const SizedBox(height: 15),
+        TextField(controller: _threshCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "If balance below (₹)", border: OutlineInputBorder())),
+        const SizedBox(height: 10),
+        TextField(controller: _amtCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Add Amount (₹)", border: OutlineInputBorder())),
+        const SizedBox(height: 10),
+        const DropdownMenu(dropdownMenuEntries: [DropdownMenuEntry(value: "Card", label: "Use Saved Card"), DropdownMenuEntry(value: "UPI", label: "Use Saved UPI")], label: Text("Payment Method")),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+        ElevatedButton(onPressed: () async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('autopay_enabled', true);
+          await prefs.setDouble('autopay_threshold', double.tryParse(_threshCtrl.text) ?? 100);
+          await prefs.setDouble('autopay_amount', double.tryParse(_amtCtrl.text) ?? 500);
+          setState(() => autoPayEnabled = true);
+          Navigator.pop(ctx);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Auto-Pay Configured!")));
+        }, child: const Text("SAVE"))
+      ],
+    ));
   }
 
   void _showDepositDialog() {
@@ -620,7 +683,11 @@ class _WalletPageState extends State<WalletPage> {
               Text("₹${wallet.toInt()}", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
             ]),
           ),
-          SwitchListTile(title: const Text("Auto-Topup (if < ₹100)"), subtitle: const Text("Automatically add ₹500"), value: autoPay, onChanged: _toggleAutoPay),
+          ListTile(
+            title: const Text("Auto-Topup"),
+            subtitle: Text(autoPayEnabled ? "Active" : "Disabled"),
+            trailing: Switch(value: autoPayEnabled, onChanged: (v) => v ? _configureAutoPay() : setState(() { autoPayEnabled = false; SharedPreferences.getInstance().then((p) => p.setBool('autopay_enabled', false)); })),
+          ),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _showDepositDialog, child: const Text("ADD MONEY")))),
           Expanded(child: ListView.builder(itemCount: transactions.length, itemBuilder: (c, i) {
             final t = transactions[i];
@@ -645,14 +712,12 @@ class DepositSheet extends StatefulWidget {
 class _DepositSheetState extends State<DepositSheet> {
   int _method = 0; 
   final _amountCtrl = TextEditingController();
-  final _cardCtrl = TextEditingController();
-  final _cvvCtrl = TextEditingController();
-  final _expiryCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
-  bool _saveDetails = false;
+  bool _loading = false;
 
   Future<void> _pay() async {
     if (_amountCtrl.text.isEmpty) return;
+    setState(() => _loading = true);
+    await Future.delayed(const Duration(seconds: 2));
     final prefs = await SharedPreferences.getInstance();
     double amt = double.parse(_amountCtrl.text);
     double cur = prefs.getDouble('wallet') ?? 0;
@@ -681,29 +746,16 @@ class _DepositSheetState extends State<DepositSheet> {
           ChoiceChip(label: const Text("UPI"), selected: _method == 1, onSelected: (b) => setState(() => _method = 1)),
         ]),
         const SizedBox(height: 15),
-        TextField(controller: _amountCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Amount", border: OutlineInputBorder())),
+        TextField(controller: _amountCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Amount (₹)", border: OutlineInputBorder())),
         const SizedBox(height: 10),
-        if (_method == 0) ...[
-          TextField(controller: _cardCtrl, keyboardType: TextInputType.number, maxLength: 16, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: "Card Number (16 digits)", counterText: "", border: OutlineInputBorder())),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: TextField(controller: _expiryCtrl, decoration: const InputDecoration(labelText: "MM/YY", border: OutlineInputBorder()))),
-            const SizedBox(width: 10),
-            Expanded(child: TextField(controller: _cvvCtrl, obscureText: true, maxLength: 3, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "CVV", counterText: "", border: OutlineInputBorder()))),
-          ]),
-          const SizedBox(height: 10),
-          TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: "Cardholder Name", border: OutlineInputBorder())),
-        ],
-        if (_method == 1) TextField(decoration: const InputDecoration(labelText: "UPI ID (e.g. name@upi)", border: OutlineInputBorder())),
-        CheckboxListTile(title: const Text("Save Details securely"), value: _saveDetails, onChanged: (v) => setState(() => _saveDetails = v!)),
-        SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _pay, child: const Text("PAY NOW"))),
+        SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _pay, child: _loading ? const CircularProgressIndicator() : const Text("PAY NOW"))),
         const SizedBox(height: 20),
       ]),
     );
   }
 }
 
-// --- SCREEN 7: PROFILE (Fixed Easter Egg) ---
+// --- SCREEN 7: PROFILE (Restored Support) ---
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
   @override
@@ -719,6 +771,21 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() { super.initState(); _loadData(); }
   Future<void> _loadData() async { final prefs = await SharedPreferences.getInstance(); setState(() { name = prefs.getString('name') ?? ""; id = prefs.getString('id') ?? ""; }); }
 
+  void _showSupport() {
+    showModalBottomSheet(context: context, builder: (_) => Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text("Saints Support", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        ListTile(leading: const Icon(Icons.warning), title: const Text("Raise a Complaint"), onTap: () {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Ticket #SR-${Random().nextInt(999)} Created.")));
+        }),
+        ListTile(leading: const Icon(Icons.chat), title: const Text("Chat with Admin"), onTap: () {}),
+      ]),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -733,14 +800,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 showDialog(context: context, builder: (_) => AlertDialog(
                   backgroundColor: const Color(0xFF2D2D2D),
                   title: const Text("⚡ FANTASTIC 6 ⚡", style: TextStyle(color: Colors.white)),
-                  content: const Text(
-                    "1. Mohammed Shameem J (RA2411028020104)\n"
-                    "2. Aryaman Yadav (RA2411028020086)\n"
-                    "3. Shivam Chandra (RA2311028020049)\n"
-                    "4. Krishna Santhanam (RA2411028020136)\n\n"
-                    "Team Lead: Mohammed Shameem J",
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  content: const Text("Mohammed Shameem J\nAryaman Yadav\nShivam Chandra\nKrishna Santhanam", style: TextStyle(color: Colors.white70)),
                 ));
                 eggTaps = 0;
               }
@@ -750,9 +810,9 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 10),
           Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           Text("Reg: $id", style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 10),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(20)), child: const Text("Saints Row III School", style: TextStyle(fontWeight: FontWeight.bold))),
           const SizedBox(height: 30),
+          ListTile(leading: const Icon(Icons.headset_mic), title: const Text("Help & Support"), onTap: _showSupport, trailing: const Icon(Icons.chevron_right)),
+          ListTile(leading: const Icon(Icons.info), title: const Text("About App"), trailing: const Icon(Icons.chevron_right)),
           ListTile(leading: const Icon(Icons.logout, color: Colors.red), title: const Text("Logout"), onTap: () async {
             final prefs = await SharedPreferences.getInstance(); await prefs.clear();
             Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (r) => false);
