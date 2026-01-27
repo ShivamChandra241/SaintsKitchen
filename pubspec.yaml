@@ -1,5 +1,5 @@
-name: saints_kitchen
-description: A premium food ordering app.
+name: srm_kitchen
+description: "Saints Kitchen - Premium Food Ordering App for SRM"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,20 +9,26 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Local Storage (Remembers login)
-  shared_preferences: ^2.2.0
-  # Beautiful Fonts
+
+  # UI & Fonts
   google_fonts: ^6.1.0
-  # Icons & QR
-  cupertino_icons: ^1.0.2
-  qr_flutter: ^4.1.0
+  cupertino_icons: ^1.0.8
+
+  # Utilities
   intl: ^0.18.0
+  qr_flutter: ^4.1.0
+
+  # State Management
+  provider: ^6.0.5
+
+  # Database (Hive)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
 
-# THIS PART IS CRITICAL FOR ICONS
 flutter:
   uses-material-design: true
