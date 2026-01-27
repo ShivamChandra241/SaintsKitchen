@@ -78,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    "Saints Row III School",
+                    "SRM University",
                     style: GoogleFonts.poppins(
                       color: Colors.white70,
                       fontSize: 15,

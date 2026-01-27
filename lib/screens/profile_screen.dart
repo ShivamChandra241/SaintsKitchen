@@ -28,7 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           "• Provider State Management\n"
           "• Favorites & Filters\n"
           "• Dark Mode\n\n"
-          "Made for Saints Row III School.",
+          "Made for SRM University.",
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
@@ -43,7 +43,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (_) => Container(
         padding: const EdgeInsets.all(20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text("Saints Support",
+          const Text("SRM Support",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
           ListTile(
@@ -73,7 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           "Aryaman Yadav\n"
           "Shivam Chandra\n"
           "Krishna Santhanam\n\n"
-          "\"Built for Saints, by Saints.\"",
+          "\"Built for SRM, by SRM.\"",
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
