@@ -19,9 +19,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("About Saints Kitchen"),
+        title: const Text("About SRM Kitchen"),
         content: const Text(
-          "Saints Kitchen v1.0 (Hive Edition)\n\n"
+          "SRM Kitchen v1.0 (Hive Edition)\n\n"
           "Built by Team Fantastic 6 to reduce canteen overcrowding and waiting time.\n\n"
           "Features:\n"
           "• Hive Database\n"

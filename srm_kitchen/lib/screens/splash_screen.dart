@@ -69,7 +69,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    "SAINTS KITCHEN",
+                    "SRM KITCHEN",
                     style: GoogleFonts.bebasNeue(
                       fontSize: 38,
                       color: Colors.white,
