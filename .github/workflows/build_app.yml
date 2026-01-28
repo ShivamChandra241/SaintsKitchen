@@ -28,5 +28,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SRM-Kitchen-APK
+          name: SRM-Kitchen-Rebranded-APK
           path: build/app/outputs/flutter-apk/app-release.apk

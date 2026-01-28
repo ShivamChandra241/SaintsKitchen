@@ -10,7 +10,7 @@ class MenuProvider extends ChangeNotifier {
   String _selectedCategory = "All";
   bool _showVegOnly = false;
 
-  List<String> get categories => ["All", "Thali", "Meals", "Snacks", "Drinks", "Dessert"];
+  List<String> get categories => ["All", "Java Green", "Tech Park", "University Building", "Main Canteen", "Dessert"];
 
   List<FoodItem> get items => _filteredMenu;
   String get selectedCategory => _selectedCategory;
@@ -23,107 +23,51 @@ class MenuProvider extends ChangeNotifier {
 
   void _initMenu() {
     _fullMenu = [
-      // THALI
-      FoodItem("101", "Chole Bhature Thali", "Thali", 120, true,
-          "2 Fluffy Bhature, Spicy Chole, Pickle, Salad & Lassi.",
-          variants: [FoodVariant("Half", 80), FoodVariant("Full", 120)]),
-      FoodItem("102", "Rajma Chawal Thali", "Thali", 110, true,
-          "Home-style Rajma, Basmati Rice, Raita & Papad.",
-          variants: [FoodVariant("Mini", 70), FoodVariant("Full", 110)]),
-      FoodItem("103", "Chicken Curry Thali", "Thali", 160, false,
-          "Spicy Chicken Curry, 2 Rotis, Jeera Rice, Salad.",
-          variants: [FoodVariant("Standard", 160), FoodVariant("Deluxe", 200)]),
-      FoodItem("104", "South Indian Thali", "Thali", 100, true,
-          "Idli, Vada, Mini Dosa, Sambar & Chutneys."),
-      FoodItem("105", "Veg Deluxe Thali", "Thali", 150, true,
-          "Paneer Butter Masala, Dal Makhani, 2 Naan, Rice & Sweet."),
-      FoodItem("106", "Fish Curry Thali", "Thali", 180, false,
-          "Coastal style Fish Curry, Steamed Rice, Sol Kadhi."),
-      FoodItem("107", "Egg Curry Thali", "Thali", 130, false,
-          "2 Egg Curry, 3 Chapatis, Rice, Salad."),
-      FoodItem("108", "Dal Baati Churma", "Thali", 140, true,
-          "Traditional Rajasthani Dal Baati with sweet Churma."),
+      // JAVA GREEN (Popular Spot)
+      FoodItem("101", "Java Green Combo", "Java Green", 120, true,
+          "2 Aloo Paratha, Curd, Pickle & Mint Mojito.",
+          variants: [FoodVariant("Mini", 90), FoodVariant("Full", 120)]),
+      FoodItem("102", "Chilly Cheese Toast", "Java Green", 60, true,
+          "Spicy cheese toast grilled to perfection."),
+      FoodItem("103", "Cold Coffee with Ice Cream", "Java Green", 80, true,
+          "The legendary JG cold coffee."),
+      FoodItem("104", "Chicken Schezwan Fried Rice", "Java Green", 140, false,
+          "Spicy fried rice with chicken chunks."),
 
-      // MEALS
-      FoodItem("201", "Classic Burger", "Meals", 60, false,
-          "Grilled patty, lettuce, tomato & house sauce."),
-      FoodItem("202", "Veggie Burger", "Meals", 50, true,
-          "Crispy potato & peas patty with mayo."),
-      FoodItem("203", "Cheese Pizza", "Meals", 99, true,
-          "Mozzarella cheese burst with basil.",
-          variants: [FoodVariant("Regular", 99), FoodVariant("Large", 199)]),
-      FoodItem("204", "Chicken Pizza", "Meals", 149, false,
-          "BBQ Chicken chunks, onions and paprika.",
-          variants: [FoodVariant("Regular", 149), FoodVariant("Large", 249)]),
-      FoodItem("205", "Veg Biryani", "Meals", 130, true,
-          "Aromatic basmati rice cooked with fresh veggies."),
-      FoodItem("206", "Chicken Biryani", "Meals", 180, false,
-          "Hyderabadi style dum biryani with raita."),
-      FoodItem("207", "Chicken Wrap", "Meals", 90, false,
-          "Spicy chicken strips in a soft tortilla wrap."),
-      FoodItem("208", "Paneer Tikka Roll", "Meals", 85, true,
-          "Char-grilled paneer cubes in roomali roti."),
-      FoodItem("209", "Pasta Alfredo", "Meals", 110, true,
-          "White sauce penne pasta with corn and olives."),
-      FoodItem("210", "Pasta Arrabbiata", "Meals", 110, true,
-          "Red sauce spicy pasta with basil."),
-      FoodItem("211", "Fried Rice", "Meals", 90, true,
-          "Indo-Chinese style veg fried rice."),
-      FoodItem("212", "Hakka Noodles", "Meals", 90, true,
-          "Stir-fried noodles with crunchy vegetables."),
+      // TECH PARK (Quick Bites)
+      FoodItem("201", "TP Sandwich", "Tech Park", 50, true,
+          "Bombay style grilled sandwich."),
+      FoodItem("202", "Chicken Puff", "Tech Park", 30, false,
+          "Flaky pastry filled with spicy chicken."),
+      FoodItem("203", "Samosa Chaat", "Tech Park", 45, true,
+          "Samosa crushed with chole, yogurt and chutneys."),
+      FoodItem("204", "Egg Maggi", "Tech Park", 50, false,
+          "Masala Maggi with scrambled eggs."),
 
-      // SNACKS
-      FoodItem("301", "Peri Peri Fries", "Snacks", 60, true,
-          "Crispy fries tossed in spicy peri peri mix.",
+      // UNIVERSITY BUILDING (UB)
+      FoodItem("301", "UB Thali", "University Building", 100, true,
+          "Rice, Sambar, Rasam, Poriyal, Curd & Pickle."),
+      FoodItem("302", "Chicken Biryani (UB Special)", "University Building", 160, false,
+          "Authentic dum biryani served with raita."),
+      FoodItem("303", "Gobi Manchurian", "University Building", 90, true,
+          "Crispy cauliflower tossed in manchurian sauce."),
+
+      // MAIN CANTEEN
+      FoodItem("401", "Masala Dosa", "Main Canteen", 60, true,
+          "Crispy dosa with potato filling and chutney."),
+      FoodItem("402", "Chole Bhature", "Main Canteen", 80, true,
+          "Classic North Indian breakfast."),
+      FoodItem("403", "Fresh Juice", "Main Canteen", 40, true,
+          "Watermelon / Orange / Pineapple.",
           variants: [FoodVariant("Small", 40), FoodVariant("Large", 60)]),
-      FoodItem("302", "Veg Sandwich", "Snacks", 45, true,
-          "Grilled sandwich with cucumber & chutney."),
-      FoodItem("303", "Chicken Nuggets", "Snacks", 90, false,
-          "6 pieces of golden fried chicken nuggets."),
-      FoodItem("304", "Samosa (2pcs)", "Snacks", 30, true,
-          "Hot potato stuffed samosas with mint chutney."),
-      FoodItem("305", "Garlic Bread", "Snacks", 70, true,
-          "Toasted baguette with garlic butter."),
-      FoodItem("306", "Vada Pav", "Snacks", 25, true,
-          "Mumbai style spicy potato slider."),
-      FoodItem("307", "Chicken Popcorn", "Snacks", 100, false,
-          "Bite sized crunchy fried chicken."),
-      FoodItem("308", "Paneer 65", "Snacks", 110, true,
-          "Spicy deep fried paneer cubes."),
-      FoodItem("309", "Nachos with Salsa", "Snacks", 80, true,
-          "Crispy chips with tangy salsa dip."),
-      FoodItem("310", "Spring Rolls", "Snacks", 70, true,
-          "Crispy fried rolls stuffed with veggies."),
-
-      // DRINKS
-      FoodItem("401", "Coca Cola", "Drinks", 25, true, "Chilled fizzy cola.",
-          variants: [FoodVariant("Can", 25), FoodVariant("Bottle", 40)]),
-      FoodItem("402", "Cold Coffee", "Drinks", 60, true,
-          "Creamy blended coffee with ice cream."),
-      FoodItem("403", "Mango Lassi", "Drinks", 50, true,
-          "Thick yogurt drink with fresh mango pulp."),
-      FoodItem("404", "Masala Chai", "Drinks", 20, true,
-          "Hot tea infused with cardamom & ginger."),
-      FoodItem("405", "Mint Mojito", "Drinks", 70, true,
-          "Refreshing lime and mint virgin mojito."),
-      FoodItem("406", "Orange Juice", "Drinks", 60, true,
-          "Freshly squeezed orange juice."),
-      FoodItem("407", "Chocolate Milkshake", "Drinks", 80, true,
-          "Thick chocolate shake with brownie crumbs."),
-      FoodItem("408", "Lemon Iced Tea", "Drinks", 50, true,
-          "Chilled tea with a hint of lemon."),
-      FoodItem("409", "Water Bottle", "Drinks", 20, true,
-          "1 Litre mineral water bottle."),
 
       // DESSERTS
-      FoodItem("501", "Choco Lava Cake", "Dessert", 80, true,
-          "Warm chocolate cake with a gooey center."),
-      FoodItem("502", "Gulab Jamun (2pcs)", "Dessert", 40, true,
-          "Fried dough balls soaked in sugar syrup."),
-      FoodItem("503", "Ice Cream Scoop", "Dessert", 50, true,
-          "Vanilla, Strawberry or Chocolate scoop."),
-      FoodItem("504", "Brownie with Ice Cream", "Dessert", 100, true,
-          "Walnut brownie topped with vanilla ice cream."),
+      FoodItem("501", "Sizzling Brownie", "Dessert", 110, true,
+          "Hot brownie on sizzling plate with ice cream."),
+      FoodItem("502", "Gulab Jamun", "Dessert", 40, true,
+          "2 pcs hot gulab jamun."),
+      FoodItem("503", "SRM Special Falooda", "Dessert", 100, true,
+          "Loaded with jelly, fruits, nuts and ice cream."),
     ];
     _applyFilters();
   }
@@ -143,11 +87,6 @@ class MenuProvider extends ChangeNotifier {
     if (item.isFavorite) {
       DatabaseService.favorites.add(item.id);
     } else {
-      // Find the key for this value to delete it, or just clear and rewrite all (simple for small lists)
-      // Since Hive lists are index based, we need to find the key.
-      // Easier: Use a Map in Hive or just iterate.
-      // For simplicity in this plan: Remove by value if possible or just rebuild list.
-      // Better: Store as Set in memory and sync to Hive.
       final Map<dynamic, String> map = DatabaseService.favorites.toMap().cast<dynamic, String>();
       dynamic keyToDelete;
       map.forEach((key, value) {
