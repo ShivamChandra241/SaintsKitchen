@@ -1,9 +1,6 @@
 name: Build SRM Kitchen APK
 
-on:
-  push:
-    branches: [ "main", "master", "srm-kitchen-upgrade" ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   build:
