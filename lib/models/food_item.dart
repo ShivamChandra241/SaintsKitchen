@@ -19,7 +19,10 @@ class FoodItem {
   final bool isVeg;
   final String description;
   final List<FoodVariant> variants;
-  bool isFavorite; // New field
+  bool isFavorite;
+  final int calories;
+  final double rating;
+  final bool isPopular;
 
   FoodItem(
     this.id,
@@ -30,6 +33,9 @@ class FoodItem {
     this.description, {
     this.variants = const [],
     this.isFavorite = false,
+    this.calories = 0,
+    this.rating = 0.0,
+    this.isPopular = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -41,6 +47,9 @@ class FoodItem {
         'description': description,
         'variants': variants.map((v) => v.toJson()).toList(),
         'isFavorite': isFavorite,
+        'calories': calories,
+        'rating': rating,
+        'isPopular': isPopular,
       };
 
   factory FoodItem.fromJson(Map<String, dynamic> json) => FoodItem(
@@ -55,6 +64,9 @@ class FoodItem {
                 .toList() ??
             [],
         isFavorite: json['isFavorite'] ?? false,
+        calories: json['calories'] ?? 0,
+        rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+        isPopular: json['isPopular'] ?? false,
       );
 }
 
@@ -90,6 +102,9 @@ class FoodItemAdapter extends TypeAdapter<FoodItem> {
       reader.readString(), // description
       variants: (reader.readList()).cast<FoodVariant>(),
       isFavorite: reader.readBool(),
+      calories: reader.readInt(),
+      rating: reader.readDouble(),
+      isPopular: reader.readBool(),
     );
   }
 
@@ -103,5 +118,8 @@ class FoodItemAdapter extends TypeAdapter<FoodItem> {
     writer.writeString(obj.description);
     writer.writeList(obj.variants);
     writer.writeBool(obj.isFavorite);
+    writer.writeInt(obj.calories);
+    writer.writeDouble(obj.rating);
+    writer.writeBool(obj.isPopular);
   }
 }

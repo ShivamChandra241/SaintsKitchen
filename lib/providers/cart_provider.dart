@@ -5,14 +5,18 @@ import 'package:srm_kitchen/models/order.dart';
 import 'package:srm_kitchen/services/database_service.dart';
 import 'dart:math';
 
+enum CheckoutState { idle, loading, success, error }
+
 class CartProvider extends ChangeNotifier {
   List<CartItem> _cart = [];
   List<Order> _history = [];
   double _discount = 0.0;
+  CheckoutState _checkoutState = CheckoutState.idle;
 
   List<CartItem> get cart => _cart;
   List<Order> get history => _history;
   double get discount => _discount;
+  CheckoutState get checkoutState => _checkoutState;
 
   double get subtotal => _cart.fold(0, (s, i) => s + i.totalPrice);
   double get total => max(0, subtotal - _discount);
@@ -44,6 +48,12 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void reorder(Order order) {
+    for (var item in order.items) {
+      addToCart(item.item, item.selectedVariant, item.quantity);
+    }
+  }
+
   void updateQuantity(CartItem item, int delta) {
     final index = _cart.indexOf(item);
     if (index == -1) return;
@@ -66,7 +76,7 @@ class CartProvider extends ChangeNotifier {
   }
 
   bool applyCoupon(String code) {
-    if (code.toUpperCase() == "SAINTS50") {
+    if (code.toUpperCase() == "SRM50" || code.toUpperCase() == "SAINTS50") {
       _discount = 50.0;
       notifyListeners();
       return true;
@@ -74,34 +84,54 @@ class CartProvider extends ChangeNotifier {
     return false;
   }
 
-  Future<Order> placeOrder(double paidAmount) async {
-    final orderId = "SK-${Random().nextInt(9999)}";
-    final newOrder = Order(
-      orderId,
-      List.from(_cart),
-      subtotal,
-      _discount,
-      paidAmount,
-      DateTime.now(),
-    );
+  Future<bool> checkout(double paidAmount) async {
+    if (_cart.isEmpty) return false;
 
-    _history.insert(0, newOrder);
-    await DatabaseService.orders.add(newOrder);
+    try {
+      _checkoutState = CheckoutState.loading;
+      notifyListeners();
 
-    // Clear cart but keep history
-    _cart.clear();
-    await DatabaseService.cart.clear();
-    _discount = 0.0;
+      // Simulate network delay
+      await Future.delayed(const Duration(seconds: 2));
 
-    notifyListeners();
-    return newOrder;
+      final orderId = "SK-${Random().nextInt(9999)}";
+      final newOrder = Order(
+        orderId,
+        List.from(_cart),
+        subtotal,
+        _discount,
+        paidAmount,
+        DateTime.now(),
+      );
+
+      _history.insert(0, newOrder);
+      await DatabaseService.orders.add(newOrder);
+
+      _checkoutState = CheckoutState.success;
+      notifyListeners();
+
+      // Wait for success animation to play in UI before clearing
+      await Future.delayed(const Duration(seconds: 2));
+
+      _cart.clear();
+      await DatabaseService.cart.clear();
+      _discount = 0.0;
+      _checkoutState = CheckoutState.idle;
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _checkoutState = CheckoutState.error;
+      notifyListeners();
+      await Future.delayed(const Duration(seconds: 2));
+      _checkoutState = CheckoutState.idle;
+      notifyListeners();
+      return false;
+    }
   }
 
   void rateOrder(Order order, int rating) {
     order.rating = rating;
-    // Since we didn't extend HiveObject, we need to find key or save manually.
-    // Simpler: just notify listeners as it updates reference in memory.
-    // To persist:
     final key = DatabaseService.orders.keys.firstWhere((k) => DatabaseService.orders.get(k)?.id == order.id, orElse: () => null);
     if (key != null) {
       DatabaseService.orders.put(key, order);

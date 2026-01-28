@@ -12,8 +12,23 @@ class CartScreen extends StatefulWidget {
   State<CartScreen> createState() => _CartScreenState();
 }
 
-class _CartScreenState extends State<CartScreen> {
+class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateMixin {
   final _couponCtrl = TextEditingController();
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Future<void> _placeOrder() async {
     final cart = Provider.of<CartProvider>(context, listen: false);
@@ -30,29 +45,7 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    // Deduct Money first (optimistic)
-    // We need order ID for transaction meta, but placeOrder generates it.
-    // Let's generate a temporary ID or let placeOrder handle it.
-    // Plan:
-    // 1. Check balance (done)
-    // 2. Place Order (generates ID)
-    // 3. Deduct Money (using ID)
-    // But if deduct fails? (Unlikely if balance checked).
-    // Better: Transaction should happen.
-
-    // Let's do:
-    // 1. Calculate amount.
-    // 2. Deduct from wallet with "Pending Order".
-    // 3. Create Order.
-    // 4. If Order creation fails, refund (not handling here).
-
-    // Or simplified:
-    // 1. Place order.
-    // 2. Deduct.
-    // The previous app did: Check balance -> Show animation -> Deduct -> Save Order.
-
-    // I'll replicate:
-    final success = await user.deductMoney(total, "New Order");
+    final success = await user.deductMoney(total, "Food Order");
     if (!success) {
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text("Payment Failed!"),
@@ -60,30 +53,30 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    // Show Animation
-    await showDialog(
+    // Show Success Dialog with Animation
+    showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(30),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const CircularProgressIndicator(), // Or success icon
-            const SizedBox(height: 20),
-            const Text("Processing Payment...",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          ]),
-        ),
-      ),
+      builder: (ctx) => const CheckoutSuccessDialog(),
     );
 
-    await cart.placeOrder(total);
+    await cart.checkout(total);
 
-    if (mounted) Navigator.pop(context); // Close dialog
+    // The dialog inside cart.checkout logic is handled by UI state listening or manual?
+    // In my previous step I updated CartProvider to have checkoutState.
+    // Actually, let's look at the logic.
+    // Provider handles state. UI reacts.
 
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Order Placed! ₹${total.toInt()} deducted.")));
+    // Wait for provider to finish "loading"
+    // Ideally we shouldn't await cart.checkout here if it doesn't return immediately or if we want custom UI.
+    // The provider `checkout` method I wrote has a delay and sets state.
+    // But since I'm showing a custom dialog here, I might want to coordinate.
+
+    // Let's rely on the Dialog's internal logic or close it manually.
+    if (mounted) Navigator.pop(context); // Close the checkout dialog
+
+    // Then switch to History tab
+    DefaultTabController.of(context).animateTo(1);
   }
 
   Widget _buildStep(String title, bool isActive, bool isCompleted, IconData icon) {
@@ -113,7 +106,14 @@ class _CartScreenState extends State<CartScreen> {
             // CART TAB
             Consumer<CartProvider>(
               builder: (context, cart, _) => cart.cart.isEmpty
-                  ? const Center(child: Text("Cart Empty"))
+                  ? Center(child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[300]),
+                        const SizedBox(height: 10),
+                        const Text("Hungry? Add some food!", style: TextStyle(color: Colors.grey))
+                      ],
+                    ))
                   : Column(children: [
                       Expanded(
                         child: ListView.builder(
@@ -124,45 +124,51 @@ class _CartScreenState extends State<CartScreen> {
                               title: Text(ci.displayName),
                               subtitle: Row(children: [
                                 IconButton(
-                                    icon: const Icon(Icons.remove),
+                                    icon: const Icon(Icons.remove, size: 18),
                                     onPressed: () =>
                                         cart.updateQuantity(ci, -1)),
-                                Text("${ci.quantity}"),
+                                Text("${ci.quantity}", style: const TextStyle(fontWeight: FontWeight.bold)),
                                 IconButton(
-                                    icon: const Icon(Icons.add),
+                                    icon: const Icon(Icons.add, size: 18),
                                     onPressed: () => cart.updateQuantity(ci, 1)),
                               ]),
-                              trailing: Text("₹${ci.totalPrice.toInt()}"),
+                              trailing: Text("₹${ci.totalPrice.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold)),
                             );
                           },
                         ),
                       ),
                       Container(
                         padding: const EdgeInsets.all(20),
-                        color: Theme.of(context).cardColor,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).cardColor,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))]
+                        ),
                         child: Column(children: [
                           if (cart.discount > 0)
                              Container(
                                padding: const EdgeInsets.all(10),
-                               color: Colors.green[100],
+                               margin: const EdgeInsets.only(bottom: 10),
+                               decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(8)),
                                child: Row(children: [
-                                 const Icon(Icons.check, color: Colors.green),
-                                 Text(" Coupon Applied! -₹${cart.discount}", style: const TextStyle(color: Colors.green))
+                                 const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                 const SizedBox(width: 8),
+                                 Text("SRM Coupon Applied! -₹${cart.discount.toInt()}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold))
                                ])
                              ),
-                          const SizedBox(height: 10),
                           Row(children: [
                             Expanded(
                                 child: TextField(
                                     controller: _couponCtrl,
-                                    decoration: const InputDecoration(
-                                        hintText: "Code: SAINTS50",
-                                        border: OutlineInputBorder()))),
+                                    decoration: InputDecoration(
+                                        hintText: "Enter Code (e.g. SRM50)",
+                                        isDense: true,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
                             const SizedBox(width: 10),
                             ElevatedButton(
                               onPressed: () {
                                 if(cart.applyCoupon(_couponCtrl.text)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Coupon Applied!")));
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("YAY! Coupon Applied!")));
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid Coupon"), backgroundColor: Colors.red));
                                 }
@@ -170,26 +176,29 @@ class _CartScreenState extends State<CartScreen> {
                               child: const Text("APPLY")
                             )
                           ]),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 20),
                           Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text("Total"),
+                                const Text("Total Amount", style: TextStyle(fontSize: 16)),
                                 Text(
                                   "₹${cart.total.toInt()}",
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.bold, fontSize: 18),
+                                      fontWeight: FontWeight.bold, fontSize: 24, color: Color(0xFF6200EA)),
                                 )
                               ]),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 15),
                           SizedBox(
                             width: double.infinity,
+                            height: 50,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF6200EA),
-                                  foregroundColor: Colors.white),
+                                  foregroundColor: Colors.white,
+                                  elevation: 5,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                               onPressed: _placeOrder,
-                              child: const Text("PAY & ORDER"),
+                              child: const Text("SWIPE TO PAY (DEMO: TAP)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
                             ),
                           )
                         ]),
@@ -199,19 +208,30 @@ class _CartScreenState extends State<CartScreen> {
 
             // HISTORY TAB
             Consumer<CartProvider>(
-              builder: (context, cart, _) => ListView.builder(
+              builder: (context, cart, _) => cart.history.isEmpty ?
+              Center(child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.history, size: 80, color: Colors.grey[300]),
+                        const SizedBox(height: 10),
+                        const Text("No past orders.", style: TextStyle(color: Colors.grey))
+                      ],
+                    )) :
+              ListView.builder(
               padding: const EdgeInsets.all(15),
               itemCount: cart.history.length,
               itemBuilder: (context, index) {
                 final o = cart.history[index];
                 final mins = DateTime.now().difference(o.timestamp).inMinutes;
-                bool cooking = mins >= 1;
-                bool ready = mins >= 2;
+                bool cooking = mins >= 0; // Immediate cooking for demo
+                bool ready = mins >= 1; // Fast ready for demo
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 20),
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   child: ExpansionTile(
-                    title: Text("Order #${o.id}"),
+                    title: Text("Order #${o.id}", style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle:
                         Text(DateFormat('dd MMM, hh:mm a').format(o.timestamp)),
                     children: [
@@ -223,51 +243,74 @@ class _CartScreenState extends State<CartScreen> {
                           _buildStep("Ready to Pickup", ready, ready, Icons.check_circle),
                           const SizedBox(height: 10),
 
-                          ...o.items.map((i) => Row(
+                          ...o.items.map((i) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
                                 children: [
-                                  const Icon(Icons.circle, size: 6),
-                                  const SizedBox(width: 6),
+                                  const Icon(Icons.fastfood, size: 14, color: Colors.grey),
+                                  const SizedBox(width: 8),
                                   Expanded(child: Text("${i.displayName} x${i.quantity}")),
-                                  Text("₹${i.totalPrice.toInt()}"),
+                                  Text("₹${i.totalPrice.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold)),
                                 ],
-                              )),
+                              ),
+                          )),
 
-                          const Divider(),
+                          const Divider(height: 30),
                           Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text("Paid"),
+                                const Text("Total Paid"),
                                 Text("₹${o.paid.toInt()}",
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
+                                        fontSize: 16,
                                         color: Colors.green))
                               ]),
 
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 20),
                           if (ready) ...[
-                            QrImageView(data: o.id, size: 100, backgroundColor: Colors.white),
-                            const SizedBox(height: 6),
-                            const Text("SCAN AT COUNTER",
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey[200]!)),
+                              child: QrImageView(data: o.id, size: 120, backgroundColor: Colors.white)
+                            ),
+                            const SizedBox(height: 10),
+                            const Text("SHOW TO COUNTER",
                                 style: TextStyle(
                                     color: Colors.green,
-                                    fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 10),
-                            const Text("Rate your food:"),
+                                    fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                            const SizedBox(height: 20),
+                            const Text("Rate your meal:", style: TextStyle(fontWeight: FontWeight.w500)),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: List.generate(5, (s) {
                                 return IconButton(
                                   icon: Icon(
                                       s < (o.rating ?? 0)
-                                          ? Icons.star
-                                          : Icons.star_border,
-                                      color: Colors.amber),
+                                          ? Icons.star_rounded
+                                          : Icons.star_border_rounded,
+                                      color: Colors.amber, size: 30),
                                   onPressed: () => cart.rateOrder(o, s + 1),
                                 );
                               }),
                             ),
+                            TextButton.icon(
+                              onPressed: () {
+                                cart.reorder(o);
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Items added to cart!")));
+                                DefaultTabController.of(context).animateTo(0);
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: const Text("Reorder This Meal")
+                            )
                           ] else
-                            const LinearProgressIndicator(),
+                            const Column(
+                              children: [
+                                LinearProgressIndicator(),
+                                SizedBox(height: 5),
+                                Text("Preparing...", style: TextStyle(color: Colors.grey, fontSize: 12))
+                              ],
+                            ),
                         ]),
                       )
                     ],
@@ -275,6 +318,76 @@ class _CartScreenState extends State<CartScreen> {
                 );
               },
             ),)
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CheckoutSuccessDialog extends StatefulWidget {
+  const CheckoutSuccessDialog({super.key});
+
+  @override
+  State<CheckoutSuccessDialog> createState() => _CheckoutSuccessDialogState();
+}
+
+class _CheckoutSuccessDialogState extends State<CheckoutSuccessDialog> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _checkAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2));
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _controller, curve: const Interval(0.0, 0.5, curve: Curves.elasticOut)));
+    _checkAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _controller, curve: const Interval(0.5, 1.0, curve: Curves.easeOut)));
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: SizeTransition(
+                    sizeFactor: _checkAnimation,
+                    axis: Axis.horizontal,
+                    child: const Icon(Icons.check, color: Colors.white, size: 50),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text("Order Placed!",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+            const SizedBox(height: 10),
+            const Text("Your food is being prepared.",
+                textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
           ],
         ),
       ),

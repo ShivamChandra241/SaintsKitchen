@@ -50,6 +50,7 @@ class SRMKitchenApp extends StatelessWidget {
                 brightness: Brightness.dark,
               ),
               scaffoldBackgroundColor: const Color(0xFF121212),
+              cardColor: const Color(0xFF1E1E1E),
               textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
             ),
             home: const SplashScreen(),
