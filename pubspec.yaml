@@ -29,6 +29,16 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
+  flutter_native_splash: ^2.3.1
+
+flutter_native_splash:
+  color: "#FF5722" # Deep Orange
+  branding: "assets/images/branding.png" # Optional: if we had one.
+  # Since I don't have an image, I will omit the image parameter and just set color.
+  # But the tool might complain if I don't give it something.
+  # Let's just stick to color for now.
+  android_12:
+    color: "#FF5722"
 
 flutter:
   uses-material-design: true
