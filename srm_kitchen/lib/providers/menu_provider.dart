@@ -141,19 +141,20 @@ class MenuProvider extends ChangeNotifier {
   void toggleFavorite(FoodItem item) {
     item.isFavorite = !item.isFavorite;
     if (item.isFavorite) {
-      DatabaseService.favorites.add(item.id);
+      DatabaseService.favorites.put(item.id, item.id);
     } else {
-      // Find the key for this value to delete it, or just clear and rewrite all (simple for small lists)
-      // Since Hive lists are index based, we need to find the key.
-      // Easier: Use a Map in Hive or just iterate.
-      // For simplicity in this plan: Remove by value if possible or just rebuild list.
-      // Better: Store as Set in memory and sync to Hive.
-      final Map<dynamic, String> map = DatabaseService.favorites.toMap().cast<dynamic, String>();
-      dynamic keyToDelete;
-      map.forEach((key, value) {
-        if (value == item.id) keyToDelete = key;
-      });
-      if (keyToDelete != null) DatabaseService.favorites.delete(keyToDelete);
+      // Try fast deletion first (Key == ID)
+      if (DatabaseService.favorites.containsKey(item.id)) {
+        DatabaseService.favorites.delete(item.id);
+      } else {
+        // Fallback for legacy favorites (Key != ID)
+        final Map<dynamic, String> map = DatabaseService.favorites.toMap().cast<dynamic, String>();
+        dynamic keyToDelete;
+        map.forEach((key, value) {
+          if (value == item.id) keyToDelete = key;
+        });
+        if (keyToDelete != null) DatabaseService.favorites.delete(keyToDelete);
+      }
     }
     notifyListeners();
   }
