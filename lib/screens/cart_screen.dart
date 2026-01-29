@@ -62,17 +62,6 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
 
     await cart.checkout(total);
 
-    // The dialog inside cart.checkout logic is handled by UI state listening or manual?
-    // In my previous step I updated CartProvider to have checkoutState.
-    // Actually, let's look at the logic.
-    // Provider handles state. UI reacts.
-
-    // Wait for provider to finish "loading"
-    // Ideally we shouldn't await cart.checkout here if it doesn't return immediately or if we want custom UI.
-    // The provider `checkout` method I wrote has a delay and sets state.
-    // But since I'm showing a custom dialog here, I might want to coordinate.
-
-    // Let's rely on the Dialog's internal logic or close it manually.
     if (mounted) Navigator.pop(context); // Close the checkout dialog
 
     // Then switch to History tab
@@ -99,7 +88,12 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
       child: Scaffold(
         appBar: AppBar(
           title: const Text("My Orders"),
-          bottom: const TabBar(tabs: [Tab(text: "Cart"), Tab(text: "History")]),
+          bottom: const TabBar(
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
+            tabs: [Tab(text: "Cart"), Tab(text: "History")],
+          ),
         ),
         body: TabBarView(
           children: [
@@ -121,6 +115,12 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
                           itemBuilder: (c, i) {
                             final ci = cart.cart[i];
                             return ListTile(
+                              leading: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: ci.item.imageUrl.isNotEmpty
+                                  ? Image.network(ci.item.imageUrl, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.fastfood))
+                                  : const Icon(Icons.fastfood, size: 40)
+                              ),
                               title: Text(ci.displayName),
                               subtitle: Row(children: [
                                 IconButton(
@@ -162,6 +162,7 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
                                     controller: _couponCtrl,
                                     decoration: InputDecoration(
                                         hintText: "Enter Code (e.g. SRM50)",
+                                        key: const Key('coupon_field'), // For Tutorial
                                         isDense: true,
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))))),
                             const SizedBox(width: 10),
@@ -223,97 +224,95 @@ class _CartScreenState extends State<CartScreen> with SingleTickerProviderStateM
               itemBuilder: (context, index) {
                 final o = cart.history[index];
                 final mins = DateTime.now().difference(o.timestamp).inMinutes;
-                bool cooking = mins >= 0; // Immediate cooking for demo
-                bool ready = mins >= 1; // Fast ready for demo
+                bool cooking = mins >= 0;
+                bool ready = mins >= 1;
 
-                return Card(
+                return Container(
                   margin: const EdgeInsets.only(bottom: 20),
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  child: ExpansionTile(
-                    title: Text("Order #${o.id}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle:
-                        Text(DateFormat('dd MMM, hh:mm a').format(o.timestamp)),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(children: [
-                          _buildStep("Order Placed", true, cooking, Icons.receipt),
-                          _buildStep("Cooking", cooking, ready, Icons.soup_kitchen),
-                          _buildStep("Ready to Pickup", ready, ready, Icons.check_circle),
-                          const SizedBox(height: 10),
-
-                          ...o.items.map((i) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                                children: [
-                                  const Icon(Icons.fastfood, size: 14, color: Colors.grey),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: Text("${i.displayName} x${i.quantity}")),
-                                  Text("₹${i.totalPrice.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                                ],
-                              ),
+                  child: Material(
+                    elevation: 2,
+                    color: Theme.of(context).cardColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    child: ExpansionTile(
+                      shape: const Border(),
+                      title: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
+                            child: Text("#${o.id.split('-').last}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black)),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(DateFormat('hh:mm a').format(o.timestamp), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: ready ? Colors.green[100] : Colors.orange[100],
+                          borderRadius: BorderRadius.circular(10)
+                        ),
+                        child: Text(ready ? "Ready" : "Cooking", style: TextStyle(color: ready ? Colors.green : Colors.orange[800], fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                      children: [
+                        // Ticket Style Divider
+                        Row(
+                          children: List.generate(150 ~/ 5, (index) => Expanded(
+                            child: Container(
+                              color: index % 2 == 0 ? Colors.transparent : Colors.grey[300],
+                              height: 1,
+                            ),
                           )),
-
-                          const Divider(height: 30),
-                          Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text("Total Paid"),
-                                Text("₹${o.paid.toInt()}",
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        color: Colors.green))
-                              ]),
-
-                          const SizedBox(height: 20),
-                          if (ready) ...[
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey[200]!)),
-                              child: QrImageView(data: o.id, size: 120, backgroundColor: Colors.white)
-                            ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(children: [
+                            _buildStep("Order Placed", true, cooking, Icons.receipt),
+                            _buildStep("Cooking", cooking, ready, Icons.soup_kitchen),
+                            _buildStep("Ready to Pickup", ready, ready, Icons.check_circle),
                             const SizedBox(height: 10),
-                            const Text("SHOW TO COUNTER",
-                                style: TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                            const SizedBox(height: 20),
-                            const Text("Rate your meal:", style: TextStyle(fontWeight: FontWeight.w500)),
+
+                            ...o.items.map((i) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                  children: [
+                                    const Icon(Icons.fastfood, size: 14, color: Colors.grey),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: Text("${i.displayName} x${i.quantity}")),
+                                    Text("₹${i.totalPrice.toInt()}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                            )),
+
+                            const Divider(height: 30),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(5, (s) {
-                                return IconButton(
-                                  icon: Icon(
-                                      s < (o.rating ?? 0)
-                                          ? Icons.star_rounded
-                                          : Icons.star_border_rounded,
-                                      color: Colors.amber, size: 30),
-                                  onPressed: () => cart.rateOrder(o, s + 1),
-                                );
-                              }),
-                            ),
-                            TextButton.icon(
-                              onPressed: () {
-                                cart.reorder(o);
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Items added to cart!")));
-                                DefaultTabController.of(context).animateTo(0);
-                              },
-                              icon: const Icon(Icons.refresh),
-                              label: const Text("Reorder This Meal")
-                            )
-                          ] else
-                            const Column(
-                              children: [
-                                LinearProgressIndicator(),
-                                SizedBox(height: 5),
-                                Text("Preparing...", style: TextStyle(color: Colors.grey, fontSize: 12))
-                              ],
-                            ),
-                        ]),
-                      )
-                    ],
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text("Total Paid"),
+                                  Text("₹${o.paid.toInt()}",
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: Colors.green))
+                                ]),
+
+                            const SizedBox(height: 20),
+                            if (ready) ...[
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey[200]!)),
+                                child: QrImageView(data: o.id, size: 120, backgroundColor: Colors.white)
+                              ),
+                              const SizedBox(height: 10),
+                              const Text("SCAN AT COUNTER",
+                                  style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                            ]
+                          ]),
+                        )
+                      ],
+                    ),
                   ),
                 );
               },
@@ -359,10 +358,11 @@ class _CheckoutSuccessDialogState extends State<CheckoutSuccessDialog> with Sing
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.all(30),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center, // Centered
           children: [
             ScaleTransition(
               scale: _scaleAnimation,

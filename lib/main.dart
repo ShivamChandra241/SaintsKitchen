@@ -40,6 +40,11 @@ class SRMKitchenApp extends StatelessWidget {
                 brightness: Brightness.light,
               ),
               scaffoldBackgroundColor: const Color(0xFFF8F9FE),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Color(0xFF6200EA),
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
               textTheme: GoogleFonts.poppinsTextTheme(),
             ),
             darkTheme: ThemeData(
@@ -51,6 +56,11 @@ class SRMKitchenApp extends StatelessWidget {
               ),
               scaffoldBackgroundColor: const Color(0xFF121212),
               cardColor: const Color(0xFF1E1E1E),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Color(0xFF1E1E1E),
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
               textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
             ),
             home: const SplashScreen(),

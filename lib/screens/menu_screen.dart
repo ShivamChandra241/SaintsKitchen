@@ -7,26 +7,6 @@ import 'package:srm_kitchen/providers/cart_provider.dart';
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
 
-  IconData getIconForFood(FoodItem item) {
-    final n = item.name.toLowerCase();
-    if (n.contains('pizza')) return Icons.local_pizza;
-    if (n.contains('burger')) return Icons.lunch_dining;
-    if (n.contains('biryani') || n.contains('rice')) return Icons.rice_bowl;
-    if (n.contains('coffee') || n.contains('chai') || n.contains('tea')) {
-      return Icons.local_cafe;
-    }
-    if (n.contains('ice cream') ||
-        n.contains('cake') ||
-        item.category == "Dessert") {
-      return Icons.icecream;
-    }
-    if (!item.isVeg || n.contains('chicken') || n.contains('fish')) {
-      return Icons.set_meal;
-    }
-    if (item.category == "Drinks") return Icons.local_drink;
-    return Icons.restaurant;
-  }
-
   void _showProductDetails(BuildContext context, FoodItem item) {
     FoodVariant? selectedVar =
         item.variants.isNotEmpty ? item.variants.first : null;
@@ -62,10 +42,23 @@ class MenuScreen extends StatelessWidget {
               Center(
                 child: Hero(
                   tag: 'food_icon_${item.id}',
-                  child: Icon(
-                    getIconForFood(item),
-                    size: 100,
-                    color: const Color(0xFF6200EA),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: item.imageUrl.isNotEmpty
+                      ? Image.network(
+                          item.imageUrl,
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => Container(
+                            width: double.infinity, height: 200, color: Colors.grey[200],
+                            child: const Icon(Icons.fastfood, size: 80, color: Colors.grey)
+                          ),
+                        )
+                      : Container(
+                          width: double.infinity, height: 200, color: Colors.grey[200],
+                          child: const Icon(Icons.fastfood, size: 80, color: Colors.grey)
+                        ),
                   ),
                 ),
               ),
@@ -227,6 +220,7 @@ class MenuScreen extends StatelessWidget {
                   builder: (context, menu, _) => Row(
                     children: [
                       FilterChip(
+                        key: const Key('filter_veg'),
                         label: const Text("Veg"),
                         selected: menu.showVegOnly,
                         onSelected: (val) => menu.toggleVegOnly(val),
@@ -236,6 +230,7 @@ class MenuScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       FilterChip(
+                        key: const Key('filter_fav'),
                         label: const Icon(Icons.favorite, size: 18, color: Colors.red),
                         selected: menu.showFavoritesOnly,
                         onSelected: (val) => menu.toggleFavoritesOnly(val),
@@ -265,6 +260,7 @@ class MenuScreen extends StatelessWidget {
                   return Padding(
                     padding: const EdgeInsets.only(right: 10),
                     child: GestureDetector(
+                      key: cat == "Express" ? const Key('cat_express') : null,
                       onTap: () => menu.setCategory(cat),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
@@ -311,53 +307,71 @@ class MenuScreen extends StatelessWidget {
                       ),
                       child: Stack(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Hero(
-                                    tag: 'food_icon_${item.id}',
-                                    child: Icon(getIconForFood(item),
-                                        size: 50,
-                                        color: const Color(0xFF6200EA)),
+                          Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Hero(
+                                  tag: 'food_icon_${item.id}',
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                                    child: item.imageUrl.isNotEmpty
+                                      ? Image.network(
+                                          item.imageUrl,
+                                          width: double.infinity,
+                                          height: 120,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (c, e, s) => Container(
+                                            width: double.infinity, height: 120, color: Colors.grey[200],
+                                            child: const Icon(Icons.fastfood, size: 50, color: Colors.grey)
+                                          ),
+                                        )
+                                      : Container(
+                                          width: double.infinity, height: 120, color: Colors.grey[200],
+                                          child: const Icon(Icons.fastfood, size: 50, color: Colors.grey)
+                                        ),
                                   ),
-                                  const SizedBox(height: 10),
-                                  Text(item.name,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold, fontSize: 16)),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item.variants.isNotEmpty
-                                        ? "From ₹${item.variants.first.price}"
-                                        : "₹${item.basePrice}",
-                                    style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  if (item.rating > 0)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(color: Colors.amber[100], borderRadius: BorderRadius.circular(10)),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(10.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(item.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold, fontSize: 14)),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Icon(Icons.star, size: 12, color: Colors.deepOrange),
-                                          Text(" ${item.rating}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepOrange))
+                                          Text(
+                                            item.variants.isNotEmpty
+                                                ? "₹${item.variants.first.price}"
+                                                : "₹${item.basePrice}",
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                                          ),
+                                          if (item.rating > 0)
+                                            Row(children: [
+                                              const Icon(Icons.star, size: 10, color: Colors.amber),
+                                              Text(" ${item.rating}", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold))
+                                            ])
                                         ],
                                       ),
-                                    )
-                                ]),
-                          ),
+                                    ],
+                                  ),
+                                ),
+                              ]),
                           Positioned(
                             top: 8,
                             right: 8,
-                            child: item.isFavorite
-                                ? const Icon(Icons.favorite,
-                                    color: Colors.red, size: 20)
-                                : const SizedBox(),
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.white,
+                              child: item.isFavorite
+                                ? const Icon(Icons.favorite, color: Colors.red, size: 16)
+                                : const Icon(Icons.favorite_border, color: Colors.grey, size: 16),
+                            )
                           ),
                           if (item.isPopular)
                              Positioned(

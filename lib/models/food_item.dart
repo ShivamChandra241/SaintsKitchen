@@ -23,6 +23,7 @@ class FoodItem {
   final int calories;
   final double rating;
   final bool isPopular;
+  final String imageUrl;
 
   FoodItem(
     this.id,
@@ -36,6 +37,7 @@ class FoodItem {
     this.calories = 0,
     this.rating = 0.0,
     this.isPopular = false,
+    this.imageUrl = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -50,6 +52,7 @@ class FoodItem {
         'calories': calories,
         'rating': rating,
         'isPopular': isPopular,
+        'imageUrl': imageUrl,
       };
 
   factory FoodItem.fromJson(Map<String, dynamic> json) => FoodItem(
@@ -67,6 +70,7 @@ class FoodItem {
         calories: json['calories'] ?? 0,
         rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
         isPopular: json['isPopular'] ?? false,
+        imageUrl: json['imageUrl'] ?? '',
       );
 }
 
@@ -105,6 +109,7 @@ class FoodItemAdapter extends TypeAdapter<FoodItem> {
       calories: reader.readInt(),
       rating: reader.readDouble(),
       isPopular: reader.readBool(),
+      imageUrl: reader.readString(),
     );
   }
 
@@ -121,5 +126,6 @@ class FoodItemAdapter extends TypeAdapter<FoodItem> {
     writer.writeInt(obj.calories);
     writer.writeDouble(obj.rating);
     writer.writeBool(obj.isPopular);
+    writer.writeString(obj.imageUrl);
   }
 }
